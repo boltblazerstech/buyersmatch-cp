@@ -1,0 +1,48 @@
+services:
+  - type: web
+    name: buyers-match-api
+    env: java
+    rootDir: backend
+    buildCommand: mvn clean package -DskipTests
+    startCommand: java -jar target/portal-api-0.0.1-SNAPSHOT.jar
+    envVars:
+      - key: PORT
+        value: 8080
+      - key: DB_URL
+        sync: false
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: ZOHO_CLIENT_ID
+        sync: false
+      - key: ZOHO_CLIENT_SECRET
+        sync: false
+      - key: ZOHO_REFRESH_TOKEN
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: MAIL_HOST
+        sync: false
+      - key: MAIL_PORT
+        sync: false
+      - key: MAIL_USERNAME
+        sync: false
+      - key: MAIL_PASSWORD
+        sync: false
+      - key: MAIL_FROM_NAME
+        sync: false
+      - key: ADMIN_NOTIFY_EMAIL
+        sync: false
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY
+        sync: false
+      - key: R2_SECRET_KEY
+        sync: false
+      - key: R2_BUCKET_NAME
+        sync: false
+      - key: R2_PUBLIC_URL
+        sync: false
