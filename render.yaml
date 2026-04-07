@@ -1,10 +1,9 @@
 services:
   - type: web
     name: buyers-match-api
-    env: java
+    env: docker
     rootDir: backend
-    buildCommand: mvn clean package -DskipTests
-    startCommand: java -jar target/portal-api-0.0.1-SNAPSHOT.jar
+    dockerfilePath: ./Dockerfile
     envVars:
       - key: PORT
         value: 8080
