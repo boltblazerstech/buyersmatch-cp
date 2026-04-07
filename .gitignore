@@ -27,3 +27,6 @@ npm-debug.log*
 # Claude local settings
 .claude/settings.local.json
 backend/.claude/
+
+# Nested git repo (accidentally created)
+buyersmatch-cp/
