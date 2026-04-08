@@ -56,6 +56,7 @@ public class AuthService {
                     .greetingName(user.getBuyerBrief() != null ? user.getBuyerBrief().getGreetingName() : null)
                     .role("CLIENT")
                     .clientId(user.getBuyerBrief() != null ? user.getBuyerBrief().getId() : null)
+                    .zohoContactId(user.getZohoContactId())
                     .build();
         }
 

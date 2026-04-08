@@ -97,3 +97,29 @@ export const saveClientNotes = async (assignmentId, notes) => {
   const { data } = await api.post(`/api/client/assignment/${assignmentId}/client-notes`, { notes });
   return data;
 };
+
+// ─── Notifications ────────────────────────────────────────────────
+
+/** GET /api/client/:zohoContactId/notifications */
+export const getNotifications = async (zohoContactId) => {
+  const { data } = await api.get(`/api/client/${zohoContactId}/notifications`);
+  return data;
+};
+
+/** GET /api/client/:zohoContactId/notifications/unread-count */
+export const getUnreadCount = async (zohoContactId) => {
+  const { data } = await api.get(`/api/client/${zohoContactId}/notifications/unread-count`);
+  return data.count;
+};
+
+/** PATCH /api/client/:zohoContactId/notifications/read-all */
+export const markAllRead = async (zohoContactId) => {
+  const { data } = await api.patch(`/api/client/${zohoContactId}/notifications/read-all`);
+  return data;
+};
+
+/** PATCH /api/client/notifications/:id/read */
+export const markOneRead = async (notificationId) => {
+  const { data } = await api.patch(`/api/client/notifications/${notificationId}/read`);
+  return data;
+};

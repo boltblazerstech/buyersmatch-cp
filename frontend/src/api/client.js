@@ -40,9 +40,6 @@ export {
   setClientPassword,
   getSyncStatus,
   triggerSync,
-  getNotifications,
-  markNotificationRead,
-  markAllNotificationsRead,
 } from './admin';
 
 // Client Portal — Briefs, Assignments & Actions
@@ -57,6 +54,10 @@ export {
   markPurchased,
   notifyPropertyAction,
   saveClientNotes,
+  getNotifications,
+  getUnreadCount,
+  markAllRead,
+  markOneRead,
 } from './clientPortal';
 
 // Properties

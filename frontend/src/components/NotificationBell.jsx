@@ -1,38 +1,44 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Bell, Check, CheckCheck, Clock, X } from 'lucide-react';
-import { getNotifications, markNotificationRead, markAllNotificationsRead, getStoredUser } from '../api/client';
+import { Bell, Check, CheckCheck, Clock } from 'lucide-react';
+import { getNotifications, getUnreadCount, markAllRead, markOneRead, getStoredUser } from '../api/client';
 import { motion, AnimatePresence } from 'motion/react';
+
+const formatTimeAgo = (dateString) => {
+  const diffInSeconds = Math.floor((Date.now() - new Date(dateString)) / 1000);
+  if (diffInSeconds < 60)    return 'Just now';
+  if (diffInSeconds < 3600)  return `${Math.floor(diffInSeconds / 60)} minutes ago`;
+  if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hours ago`;
+  return `${Math.floor(diffInSeconds / 86400)} days ago`;
+};
 
 const NotificationBell = () => {
   const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const user = getStoredUser();
   const dropdownRef = useRef(null);
+  const user = getStoredUser();
+  const zohoContactId = user?.zohoContactId;
 
-  const fetchNotifications = async () => {
-    if (!user) return;
-    setLoading(true);
-    try {
-      const data = await getNotifications(user.id);
-      setNotifications(data);
-    } catch (error) {
-      console.error("Error fetching notifications:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // Poll unread count every 60 seconds
   useEffect(() => {
-    fetchNotifications();
-    // Poll for new notifications every 30 seconds
-    const interval = setInterval(fetchNotifications, 30000);
+    if (!zohoContactId) return;
+    const fetchCount = async () => {
+      try {
+        const count = await getUnreadCount(zohoContactId);
+        setUnreadCount(count);
+      } catch (e) {
+        console.error('Failed to fetch unread count:', e);
+      }
+    };
+    fetchCount();
+    const interval = setInterval(fetchCount, 60000);
     return () => clearInterval(interval);
-  }, []);
+  }, [zohoContactId]);
 
+  // Close on outside click
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setIsOpen(false);
       }
     };
@@ -40,86 +46,61 @@ const NotificationBell = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const handleBellClick = async () => {
+    const opening = !isOpen;
+    setIsOpen(opening);
+    if (!opening || !zohoContactId) return;
 
-  const handleMarkRead = async (id) => {
     try {
-      await markNotificationRead(id);
-      setNotifications(notifications.map(n => n.id === id ? { ...n, read: true } : n));
-    } catch (error) {
-      console.error("Error marking notification as read:", error);
+      const result = await getNotifications(zohoContactId);
+      setNotifications(result.data ?? []);
+      await markAllRead(zohoContactId);
+      setUnreadCount(0);
+      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+    } catch (e) {
+      console.error('Failed to load notifications:', e);
     }
   };
 
-  const handleMarkAllRead = async () => {
+  const handleMarkOne = async (id) => {
     try {
-      await markAllNotificationsRead(user.id);
-      setNotifications(notifications.map(n => ({ ...n, read: true })));
-    } catch (error) {
-      console.error("Error marking all notifications as read:", error);
+      await markOneRead(id);
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+    } catch (e) {
+      console.error('Failed to mark notification read:', e);
     }
-  };
-
-  const formatTime = (dateString) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInSeconds = Math.floor((now - date) / 1000);
-    
-    if (diffInSeconds < 60) return 'Just now';
-    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
-    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
-    return date.toLocaleDateString();
   };
 
   return (
     <div className="relative" ref={dropdownRef}>
-      <button 
-        onClick={() => setIsOpen(!isOpen)}
+      <button
+        onClick={handleBellClick}
         className="p-2 text-gray-400 hover:text-teal transition-colors relative group"
       >
         <Bell size={20} className="group-hover:rotate-12 transition-transform" />
         {unreadCount > 0 && (
           <span className="absolute top-1 right-1 w-4 h-4 bg-gold text-navy text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-navy">
-            {unreadCount}
+            {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
       </button>
 
       <AnimatePresence>
         {isOpen && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 10, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
             className="absolute right-0 mt-2 w-80 sm:w-96 bg-navy border border-teal/20 rounded-2xl shadow-2xl z-[100] overflow-hidden"
           >
+            {/* Header */}
             <div className="p-4 border-b border-teal/10 flex items-center justify-between bg-white/5">
-              <h3 className="font-bold text-white flex items-center gap-2">
-                Notifications
-                {unreadCount > 0 && (
-                  <span className="px-2 py-0.5 bg-gold/20 text-gold text-[10px] rounded-full uppercase tracking-widest">
-                    {unreadCount} New
-                  </span>
-                )}
-              </h3>
-              {unreadCount > 0 && (
-                <button 
-                  onClick={handleMarkAllRead}
-                  className="text-[10px] text-teal hover:text-white uppercase tracking-widest font-bold flex items-center gap-1 transition-colors"
-                >
-                  <CheckCheck size={12} />
-                  Mark all read
-                </button>
-              )}
+              <h3 className="font-bold text-white">Notifications</h3>
             </div>
 
+            {/* List */}
             <div className="max-h-[400px] overflow-y-auto scrollbar-hide divide-y divide-teal/5">
-              {loading && notifications.length === 0 ? (
-                <div className="p-8 text-center">
-                  <div className="w-8 h-8 border-2 border-teal border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                  <p className="text-xs text-gray-500">Loading notifications...</p>
-                </div>
-              ) : notifications.length === 0 ? (
+              {notifications.length === 0 ? (
                 <div className="p-12 text-center">
                   <div className="w-12 h-12 bg-teal/5 rounded-full flex items-center justify-center text-teal/30 mx-auto mb-4">
                     <Bell size={24} />
@@ -129,32 +110,32 @@ const NotificationBell = () => {
                 </div>
               ) : (
                 notifications.map((n) => (
-                  <div 
-                    key={n.id} 
-                    className={`p-4 hover:bg-white/5 transition-colors relative group ${!n.read ? 'bg-teal/5' : ''}`}
+                  <div
+                    key={n.id}
+                    className={`p-4 hover:bg-white/5 transition-colors relative group ${!n.isRead ? 'bg-teal/10' : 'bg-transparent'}`}
                   >
-                    {!n.read && (
-                      <div className="absolute left-0 top-0 bottom-0 w-1 bg-teal"></div>
+                    {!n.isRead && (
+                      <div className="absolute left-0 top-0 bottom-0 w-1 bg-teal rounded-l-2xl" />
                     )}
                     <div className="flex gap-3">
-                      <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center ${!n.read ? 'bg-teal/20 text-teal' : 'bg-gray-800 text-gray-500'}`}>
+                      <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center ${!n.isRead ? 'bg-teal/20 text-teal' : 'bg-gray-800 text-gray-500'}`}>
                         <Clock size={14} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex justify-between items-start gap-2">
-                          <p className={`text-sm font-bold truncate ${!n.read ? 'text-white' : 'text-gray-400'}`}>
+                          <p className={`text-sm font-bold truncate ${!n.isRead ? 'text-white' : 'text-gray-400'}`}>
                             {n.title}
                           </p>
                           <span className="text-[10px] text-gray-500 whitespace-nowrap">
-                            {formatTime(n.createdAt)}
+                            {formatTimeAgo(n.createdAt)}
                           </span>
                         </div>
                         <p className="text-xs text-gray-400 mt-1 leading-relaxed">
                           {n.message}
                         </p>
-                        {!n.read && (
-                          <button 
-                            onClick={() => handleMarkRead(n.id)}
+                        {!n.isRead && (
+                          <button
+                            onClick={() => handleMarkOne(n.id)}
                             className="mt-2 text-[10px] text-teal font-bold uppercase tracking-widest flex items-center gap-1 hover:text-white transition-colors"
                           >
                             <Check size={10} />
@@ -166,12 +147,6 @@ const NotificationBell = () => {
                   </div>
                 ))
               )}
-            </div>
-
-            <div className="p-3 bg-white/5 border-t border-teal/10 text-center">
-              <button className="text-[10px] text-gray-500 hover:text-white uppercase tracking-widest font-bold transition-colors">
-                View All Activity
-              </button>
             </div>
           </motion.div>
         )}
