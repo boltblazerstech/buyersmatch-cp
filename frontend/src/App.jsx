@@ -1,6 +1,7 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { ToastProvider } from './components/Toast';
+import { STORAGE_KEYS } from './api/http';
 import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
 import Dashboard from './pages/client/Dashboard';
@@ -16,12 +17,39 @@ import AdminPropertyDetail from './pages/admin/AdminPropertyDetail';
 import Responses from './pages/admin/Responses';
 import BuyerBriefs from './pages/admin/BuyerBriefs';
 
+function HostRedirect() {
+  const navigate = useNavigate();
+  useEffect(() => {
+    const host = window.location.hostname;
+    const isClient = host.startsWith('clientportal');
+    const isAdmin = host.startsWith('admin');
+    const clientUser = localStorage.getItem(STORAGE_KEYS.CLIENT_USER);
+    const adminToken = localStorage.getItem(STORAGE_KEYS.ADMIN_TOKEN);
+    if (isClient) {
+      if (clientUser) {
+        navigate('/client/dashboard', { replace: true });
+      } else {
+        navigate('/client/login', { replace: true });
+      }
+    } else if (isAdmin) {
+      if (adminToken) {
+        navigate('/admin/clients', { replace: true });
+      } else {
+        navigate('/admin/login', { replace: true });
+      }
+    } else {
+      navigate('/client/login', { replace: true });
+    }
+  }, [navigate]);
+  return null;
+}
+
 function App() {
   return (
     <ToastProvider>
     <Router>
       <Routes>
-        <Route path="/" element={<Navigate to="/client/login" replace />} />
+        <Route path="/" element={<HostRedirect />} />
         <Route path="/client/login" element={<Login />} />
         <Route path="/admin/login" element={<AdminLogin />} />
         
