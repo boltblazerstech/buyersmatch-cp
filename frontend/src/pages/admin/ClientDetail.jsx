@@ -14,6 +14,8 @@ import {
   MessageSquare,
   Save,
   X,
+  FileText,
+  ChevronDown,
 } from "lucide-react";
 import {
   getAdminClientProfile,
@@ -22,6 +24,16 @@ import {
   getPropertyDocuments,
 } from "../../api/client";
 
+// Status badge color for buyer brief status
+const BRIEF_STATUS_COLOR = {
+  "New SignUp":       "bg-blue-500/20 text-blue-300 border-blue-500/30",
+  "Brief Confirmed":  "bg-teal/20 text-teal border-teal/30",
+  "Under Contract":   "bg-yellow-500/20 text-yellow-300 border-yellow-500/30",
+  "Brief Completed":  "bg-green-500/20 text-green-300 border-green-500/30",
+  "On Hold":          "bg-orange-500/20 text-orange-300 border-orange-500/30",
+  "Closed":           "bg-red-500/20 text-red-400 border-red-500/30",
+};
+
 const ClientDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -29,6 +41,7 @@ const ClientDetail = () => {
 
   const [client, setClient] = useState(null);
   const [assignments, setAssignments] = useState([]);
+  const [briefs, setBriefs] = useState([]);
   const [propertyImages, setPropertyImages] = useState({});
   const [loading, setLoading] = useState(true);
 
@@ -40,6 +53,10 @@ const ClientDetail = () => {
   const [notesModal, setNotesModal] = useState(null); // { assignmentId, notes, address }
   const [savingNotes, setSavingNotes] = useState(false);
 
+  // Buyer brief selector — "ALL" means show all non-closed brief properties
+  const [selectedBriefId, setSelectedBriefId] = useState("ALL");
+  const [briefDropdownOpen, setBriefDropdownOpen] = useState(false);
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -50,6 +67,10 @@ const ClientDetail = () => {
         setClient(profile);
         const asgList = Array.isArray(props) ? props : props?.assignments || [];
         setAssignments(asgList);
+
+        // Store briefs returned by the API (backend already strips Closed briefs)
+        const briefsList = props?.briefs || [];
+        setBriefs(briefsList);
 
         // Fetch first image for each assigned property
         const imageMap = {};
@@ -84,7 +105,19 @@ const ClientDetail = () => {
     [assignments],
   );
 
-  const filteredAssignments = assignments.filter((item) => {
+  // Build a lookup: zohoBriefId → brief object
+  const briefLookup = useMemo(() => {
+    const map = {};
+    briefs.forEach((b) => { if (b.zohoBriefId) map[b.zohoBriefId] = b; });
+    return map;
+  }, [briefs]);
+
+  // The active brief being shown (for displaying status badge etc.)
+  const activeBrief = selectedBriefId === "ALL" ? null : briefs.find(
+    (b) => b.id === selectedBriefId || b.zohoBriefId === selectedBriefId
+  );
+
+  const filteredAssignments = useMemo(() => assignments.filter((item) => {
     if (!item.property) return false;
     const matchesSearch =
       (item.property.addressLine1 || item.property.address || "")
@@ -94,8 +127,13 @@ const ClientDetail = () => {
         .toLowerCase()
         .includes(searchQuery.toLowerCase());
     const matchesTab = activeTab === "ALL" || item.portalStatus === activeTab;
-    return matchesSearch && matchesTab;
-  });
+    // Brief filter: if a specific brief is selected, only show assignments for that brief
+    const matchesBrief =
+      selectedBriefId === "ALL" ||
+      item.zohoBriefId === selectedBriefId ||
+      (activeBrief && item.zohoBriefId === activeBrief.zohoBriefId);
+    return matchesSearch && matchesTab && matchesBrief;
+  }), [assignments, searchQuery, activeTab, selectedBriefId, activeBrief]);
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -236,6 +274,129 @@ const ClientDetail = () => {
             </div>
           </div>
         </div>
+
+        {/* Buyer Brief Selector — shown only when client has multiple non-closed briefs */}
+        {briefs.length > 1 && (
+          <div className="flex items-start gap-4 flex-wrap">
+            <div className="flex items-center gap-2">
+              <FileText size={16} className="text-teal" />
+              <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+                Active Buyer Brief
+              </span>
+            </div>
+            <div className="relative" style={{ minWidth: 280 }}>
+              <button
+                onClick={() => setBriefDropdownOpen((o) => !o)}
+                className="w-full flex items-center justify-between gap-3 bg-navy border border-teal/30 rounded-xl px-4 py-2.5 text-sm text-white hover:border-teal transition-all"
+              >
+                <span className="flex items-center gap-2 min-w-0">
+                  {selectedBriefId === "ALL" ? (
+                    <span className="text-gray-300">All Briefs</span>
+                  ) : (
+                    <>
+                      <span className="text-white font-semibold truncate">
+                        {activeBrief
+                          ? (activeBrief.fullName || activeBrief.zohoName || activeBrief.zohoBriefId)
+                          : selectedBriefId}
+                      </span>
+                      {activeBrief?.status && (
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold border whitespace-nowrap ${
+                            BRIEF_STATUS_COLOR[activeBrief.status] ||
+                            "bg-white/10 text-gray-300 border-white/20"
+                          }`}
+                        >
+                          {activeBrief.status}
+                        </span>
+                      )}
+                    </>
+                  )}
+                </span>
+                <ChevronDown
+                  size={16}
+                  className={`text-gray-400 transition-transform shrink-0 ${briefDropdownOpen ? "rotate-180" : ""}`}
+                />
+              </button>
+
+              {briefDropdownOpen && (
+                <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-[#1B2A4A] border border-teal/30 rounded-xl shadow-2xl overflow-hidden">
+                  {/* All option */}
+                  <button
+                    onClick={() => { setSelectedBriefId("ALL"); setBriefDropdownOpen(false); }}
+                    className={`w-full text-left px-4 py-3 text-sm transition-colors flex items-center justify-between ${
+                      selectedBriefId === "ALL"
+                        ? "bg-teal/20 text-teal"
+                        : "text-gray-300 hover:bg-white/5 hover:text-white"
+                    }`}
+                  >
+                    <span className="font-semibold">All Briefs</span>
+                    <span className="text-[10px] text-gray-500">{assignments.length} properties</span>
+                  </button>
+                  <div className="border-t border-white/5" />
+                  {briefs.map((brief) => {
+                    const briefKey = brief.zohoBriefId || brief.id;
+                    const isSelected = selectedBriefId === briefKey;
+                    const briefName = brief.fullName || brief.zohoName || brief.zohoBriefId || "Brief";
+                    const propCount = assignments.filter(
+                      (a) => a.zohoBriefId === brief.zohoBriefId
+                    ).length;
+                    return (
+                      <button
+                        key={briefKey}
+                        onClick={() => { setSelectedBriefId(briefKey); setBriefDropdownOpen(false); }}
+                        className={`w-full text-left px-4 py-3 text-sm transition-colors flex items-center justify-between gap-3 ${
+                          isSelected
+                            ? "bg-teal/20 text-teal"
+                            : "text-gray-300 hover:bg-white/5 hover:text-white"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="font-semibold truncate">{briefName}</span>
+                          {brief.status && (
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold border whitespace-nowrap ${
+                                BRIEF_STATUS_COLOR[brief.status] ||
+                                "bg-white/10 text-gray-300 border-white/20"
+                              }`}
+                            >
+                              {brief.status}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[10px] text-gray-500 shrink-0">{propCount} props</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Close dropdown on outside click */}
+            {briefDropdownOpen && (
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => setBriefDropdownOpen(false)}
+              />
+            )}
+          </div>
+        )}
+
+        {/* Single brief info badge (when only 1 brief) */}
+        {briefs.length === 1 && (() => {
+          const b = briefs[0];
+          return (
+            <div className="flex items-center gap-3 px-4 py-2.5 bg-navy border border-teal/20 rounded-xl w-fit">
+              <FileText size={15} className="text-teal" />
+              <span className="text-xs text-gray-400 font-bold uppercase tracking-widest">Active Brief:</span>
+              <span className="text-sm text-white font-semibold">{b.fullName || b.zohoName || b.zohoBriefId}</span>
+              {b.status && (
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${BRIEF_STATUS_COLOR[b.status] || "bg-white/10 text-gray-300 border-white/20"}`}>
+                  {b.status}
+                </span>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Controls */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
