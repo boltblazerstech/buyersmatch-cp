@@ -13,9 +13,9 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
   };
 
   const navItems = [
-    { name: 'Dashboard', path: '/client/dashboard', icon: LayoutDashboard },
-    { name: 'My Properties', path: '/client/dashboard', icon: Building2 },
-    { name: 'Profile', path: '/client/profile', icon: User },
+    { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
+    { name: 'My Properties', path: '/dashboard', icon: Building2 },
+    { name: 'Profile', path: '/profile', icon: User },
   ];
 
   return (

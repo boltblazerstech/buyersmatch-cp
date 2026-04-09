@@ -185,7 +185,7 @@ const PropertyDetail = () => {
             Property not found
           </h2>
           <button
-            onClick={() => navigate("/client/dashboard")}
+            onClick={() => navigate("/dashboard")}
             className="text-teal hover:underline"
           >
             Back to Dashboard
@@ -285,7 +285,7 @@ const PropertyDetail = () => {
     <Layout title={property.address}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <button
-          onClick={() => navigate("/client/dashboard")}
+          onClick={() => navigate("/dashboard")}
           className="flex items-center gap-2 text-gray-400 hover:text-teal transition-colors mb-8 group"
         >
           <ChevronLeft

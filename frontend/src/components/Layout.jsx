@@ -9,7 +9,7 @@ const Layout = ({ children, title }) => {
       {/* Top Bar */}
       <header className="h-16 bg-navy border-b border-teal/20 px-6 flex items-center justify-between sticky top-0 z-30">
         <div className="flex items-center gap-8">
-          <Link to="/client/dashboard" className="text-xl font-bold text-teal tracking-tighter hover:opacity-80 transition-opacity">
+          <Link to="/dashboard" className="text-xl font-bold text-teal tracking-tighter hover:opacity-80 transition-opacity">
             BUYERS MATCH
           </Link>
           <h2 className="hidden md:block text-lg font-medium text-white/60 tracking-tight border-l border-white/10 pl-8">
@@ -20,7 +20,7 @@ const Layout = ({ children, title }) => {
         <div className="flex items-center gap-4">
           <NotificationBell />
           <Link 
-            to="/client/profile"
+            to="/profile"
             className="w-8 h-8 rounded-full bg-teal/20 border border-teal/40 flex items-center justify-center text-teal hover:bg-teal/30 transition-all"
             title="View Profile"
           >

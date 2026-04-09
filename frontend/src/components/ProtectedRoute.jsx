@@ -9,7 +9,7 @@ const ProtectedRoute = ({ children, role }) => {
   const userStr = localStorage.getItem(isAdmin ? 'bm_admin_user' : 'bm_client_user');
 
   if (!userStr) {
-    return <Navigate to={isAdmin ? "/admin/login" : "/client/login"} replace />;
+    return <Navigate to={isAdmin ? "/admin/login" : "/login"} replace />;
   }
 
   const user = JSON.parse(userStr);
@@ -17,7 +17,7 @@ const ProtectedRoute = ({ children, role }) => {
   const requiredRole = role?.toUpperCase();
 
   if (requiredRole && userRole !== requiredRole) {
-    return <Navigate to={userRole === 'ADMIN' ? '/admin/dashboard' : '/client/dashboard'} replace />;
+    return <Navigate to={userRole === 'ADMIN' ? '/admin/dashboard' : '/dashboard'} replace />;
   }
 
   return children;

@@ -543,7 +543,7 @@ const Dashboard = () => {
                       return (
                         <tr
                           key={item.assignment.id}
-                          onClick={() => navigate(`/client/property/${item.propertyId}`)}
+                          onClick={() => navigate(`/property/${item.propertyId}`)}
                           className={`cursor-pointer hover:bg-teal/5 transition-colors group ${isComparing ? 'bg-teal/5' : ''}`}
                         >
                           <td className="px-6 py-4" onClick={e => e.stopPropagation()}>

@@ -18,7 +18,7 @@ const Profile = () => {
 
   const handleLogout = async () => {
     await logout();
-    navigate('/client/login');
+    navigate('/login');
   };
 
   useEffect(() => {
@@ -81,7 +81,7 @@ const Profile = () => {
       {/* Profile Header Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <Link 
-          to="/client/dashboard" 
+          to="/dashboard" 
           className="flex items-center gap-2 text-teal hover:text-white transition-colors font-bold uppercase tracking-widest text-xs"
         >
           <ArrowLeft size={16} />
