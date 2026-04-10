@@ -10,6 +10,7 @@ import {
 } from "../../api/client";
 import Layout from "../../components/Layout";
 import { useToast } from "../../components/Toast";
+import { useDemoGuard } from "../../context/DemoContext";
 import {
   Bed,
   Bath,
@@ -54,6 +55,7 @@ const PropertyDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const toast = useToast();
+  const { guard } = useDemoGuard();
   const [property, setProperty] = useState(null);
   const [assignment, setAssignment] = useState(null);
   const [documents, setDocuments] = useState({
@@ -322,13 +324,13 @@ const PropertyDetail = () => {
             {assignment.portalStatus === "PENDING" && (
               <div className="flex gap-3">
                 <button
-                  onClick={() => setShowConfirmModal("ACCEPT")}
+                  onClick={() => guard(() => setShowConfirmModal("ACCEPT"), "Accepting properties is disabled in demo mode.")}
                   className="flex items-center gap-2 px-5 py-2.5 bg-teal text-navy font-bold text-sm rounded-xl hover:bg-teal/90 transition-all"
                 >
                   <CheckCircle2 size={16} /> Accept
                 </button>
                 <button
-                  onClick={() => setShowConfirmModal("REJECT")}
+                  onClick={() => guard(() => setShowConfirmModal("REJECT"), "Rejecting properties is disabled in demo mode.")}
                   className="flex items-center gap-2 px-5 py-2.5 border border-red-500/50 text-red-400 font-bold text-sm rounded-xl hover:bg-red-500/10 transition-all"
                 >
                   <XCircle size={16} /> Reject
@@ -1326,7 +1328,7 @@ const PropertyDetail = () => {
                       Cancel
                     </button>
                     <button
-                      onClick={handleSaveNotes}
+                      onClick={() => guard(handleSaveNotes, "Saving notes is disabled in demo mode.")}
                       disabled={savingNotes}
                       className="flex items-center gap-2 px-6 py-2.5 bg-teal text-navy font-bold text-sm rounded-xl hover:bg-teal/90 transition-all disabled:opacity-50"
                     >
@@ -1408,7 +1410,7 @@ const PropertyDetail = () => {
                 Cancel
               </button>
               <button
-                onClick={() => handleNotify(showConfirmModal)}
+                onClick={() => guard(() => handleNotify(showConfirmModal), "Sending to agent is disabled in demo mode.")}
                 disabled={actionLoading}
                 className={`flex-1 py-3 font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${showConfirmModal === "ACCEPT" ? "bg-teal text-navy hover:bg-teal/90" : "bg-red-500 text-white hover:bg-red-600"}`}
               >

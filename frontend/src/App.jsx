@@ -8,6 +8,8 @@ import {
 } from "react-router-dom";
 import { ToastProvider } from "./components/Toast";
 import { STORAGE_KEYS } from "./api/http";
+import { DemoProvider } from "./context/DemoContext";
+import DemoAlert from "./components/DemoAlert";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Login from "./pages/Login";
 import Dashboard from "./pages/client/Dashboard";
@@ -77,8 +79,9 @@ function HostRedirect() {
 function App() {
   return (
     <ToastProvider>
-      <Router>
-        <Routes>
+      <DemoProvider>
+        <Router>
+          <Routes>
           <Route path="/" element={<HostRedirect />} />
           <Route path="/login" element={<Login />} />
           <Route path="/admin/login" element={<AdminLogin />} />
@@ -160,8 +163,10 @@ function App() {
 
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/login" replace />} />
-        </Routes>
-      </Router>
+          </Routes>
+        </Router>
+        <DemoAlert />
+      </DemoProvider>
     </ToastProvider>
   );
 }

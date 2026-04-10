@@ -25,6 +25,7 @@ import {
 } from "../../api/client";
 import { Link } from "react-router-dom";
 import { useToast } from "../../components/Toast";
+import { useDemoGuard } from "../../context/DemoContext";
 
 const ALPHANUM =
   "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
@@ -36,6 +37,7 @@ const generatePassword = () =>
 
 const ClientList = () => {
   const toast = useToast();
+  const { guard } = useDemoGuard();
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -139,6 +141,7 @@ const ClientList = () => {
 
   const handleUpdateCredentials = async (e) => {
     e.preventDefault();
+    if (!guard(null, "Updating credentials is disabled in demo mode.")) return;
     setUpdating(true);
     const briefId = editingClient.id;
     const portalUserId = editingClient.portalUser?.id;
@@ -187,6 +190,7 @@ const ClientList = () => {
 
   const handleOnboard = async (e) => {
     e.preventDefault();
+    if (!guard(null, "Onboarding clients is disabled in demo mode.")) return;
     setOnboarding(true);
     try {
       const result = await createClient({
@@ -403,7 +407,7 @@ const ClientList = () => {
                         {!client.portalUser ? (
                           /* Unboarded — onboard button */
                           <button
-                            onClick={() => openOnboardModal(client)}
+                            onClick={() => guard(() => openOnboardModal(client), "Onboarding clients is disabled in demo mode.")}
                             className="flex items-center gap-2 px-4 py-2 bg-teal/10 text-teal border border-teal/30 rounded-xl text-xs font-bold hover:bg-teal hover:text-navy transition-all ml-auto"
                           >
                             <UserPlus size={14} /> Onboard
@@ -414,7 +418,7 @@ const ClientList = () => {
                             {/* Toggle active/inactive */}
                             {client.portalUser.status === "onboarded" ? (
                               <button
-                                onClick={() => handleDeactivate(client.id)}
+                                onClick={() => guard(() => handleDeactivate(client.id), "Deactivating users is disabled in demo mode.")}
                                 className="p-2 bg-white/5 rounded-xl text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-all"
                                 title="Deactivate"
                               >
@@ -422,7 +426,7 @@ const ClientList = () => {
                               </button>
                             ) : (
                               <button
-                                onClick={() => handleReactivate(client.id)}
+                                onClick={() => guard(() => handleReactivate(client.id), "Reactivating users is disabled in demo mode.")}
                                 className="p-2 bg-white/5 rounded-xl text-gray-400 hover:text-green-400 hover:bg-green-500/10 transition-all"
                                 title="Activate"
                               >
@@ -432,7 +436,7 @@ const ClientList = () => {
 
                             {/* Edit credentials */}
                             <button
-                              onClick={() => openCredentialsModal(client)}
+                              onClick={() => guard(() => openCredentialsModal(client), "Editing credentials is disabled in demo mode.")}
                               className="p-2 bg-white/5 rounded-xl text-gray-400 hover:text-teal hover:bg-teal/10 transition-all"
                               title="Edit credentials"
                             >

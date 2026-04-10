@@ -6,6 +6,7 @@ import {
   AlertCircle, DollarSign, MapPin, Home, Trash2
 } from 'lucide-react';
 import { getAllBuyerBriefs, createClient } from '../../api/client';
+import { useDemoGuard } from '../../context/DemoContext';
 
 // ─── Onboard Modal ────────────────────────────────────────────────
 const ALPHANUM = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -19,9 +20,11 @@ const OnboardModal = ({ brief, onClose, onSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
+  const { guard } = useDemoGuard();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!guard(null, "Onboarding clients is disabled in demo mode.")) return;
     setError('');
     setLoading(true);
     try {

@@ -1,5 +1,20 @@
 import { api, USE_MOCK, delay } from './http';
 import { mockProperties, mockDocuments } from '../mock/data';
+import { isDemoMode } from '../config/brand';
+import { anonymizeProperty } from '../utils/anonymize';
+
+const BLOCKED_DOC_TYPES = [
+  'Contract', 'Finance Letter', 'BNP Report', 'Insurance',
+];
+
+function filterDemoDocuments(docs) {
+  if (!isDemoMode) return docs;
+  return {
+    images: docs.images,
+    docs: docs.docs.filter(d => !BLOCKED_DOC_TYPES.includes(d.documentType)),
+    videos: docs.videos,
+  };
+}
 
 // ─── All Properties ───────────────────────────────────────────────
 
@@ -19,10 +34,10 @@ export const getAllProperties = async () => {
 export const getPropertyDetail = async (propertyId) => {
   if (USE_MOCK) {
     await delay();
-    return mockProperties.find(p => p.id === propertyId || p.zohoPropertyId === propertyId);
+    return anonymizeProperty(mockProperties.find(p => p.id === propertyId || p.zohoPropertyId === propertyId));
   }
   const { data } = await api.get(`/api/property/${propertyId}`);
-  return data.data;
+  return anonymizeProperty(data.data);
 };
 
 /**
@@ -34,14 +49,14 @@ export const getPropertyDocuments = async (propertyId) => {
   if (USE_MOCK) {
     await delay();
     const all = mockDocuments.filter(d => d.propertyId === propertyId);
-    return {
+    return filterDemoDocuments({
       images: all.filter(d => d.documentType === 'Due Diligence Image'),
       docs:   all.filter(d => d.documentType !== 'Due Diligence Image'),
-      videoUrl: null,
-    };
+      videos: [],
+    });
   }
   const { data } = await api.get(`/api/property/${propertyId}/documents`);
-  return data.data;
+  return filterDemoDocuments(data.data);
 };
 
 // ─── By Zoho Property ID ──────────────────────────────────────────

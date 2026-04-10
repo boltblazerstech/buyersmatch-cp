@@ -1,13 +1,21 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import { LogOut, Users, FileText, MessageSquare } from "lucide-react";
 import { adminLogout, getStoredUser } from "../api/client";
 import logo from "../assets/bm-logo-white-text-1B2A4A.jpg";
+import DemoBanner from "./DemoBanner";
+import { BRAND } from "../config/brand";
 
 const AdminLayout = ({ children, title }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const user = getStoredUser("ADMIN");
+
+  useEffect(() => {
+    document.documentElement.style.setProperty('--color-primary', BRAND.primary)
+    document.documentElement.style.setProperty('--color-dark', BRAND.dark)
+    document.documentElement.style.setProperty('--color-accent', BRAND.accent)
+  }, [])
 
   const handleLogout = async () => {
     await adminLogout();
@@ -16,6 +24,7 @@ const AdminLayout = ({ children, title }) => {
 
   return (
     <div className="min-h-screen bg-[#0A1128] text-white font-sans flex flex-col">
+      <DemoBanner />
       {/* Header */}
       <header className="h-20 border-b border-white/5 flex items-center justify-between px-6 lg:px-10 sticky top-0 bg-[#0A1128]/80 backdrop-blur-md z-30">
         <div className="flex items-center gap-6">
@@ -25,7 +34,7 @@ const AdminLayout = ({ children, title }) => {
           >
             <img 
               src={logo} 
-              alt="Buyers Match" 
+              alt={BRAND.name}
               className="h-10 w-auto group-hover:scale-105 transition-transform" 
             />
             <div className="hidden sm:block border-l border-white/10 pl-3">

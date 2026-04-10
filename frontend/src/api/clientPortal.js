@@ -1,5 +1,11 @@
 import { api, USE_MOCK, delay } from './http';
 import { mockAssignments, mockProperties, mockBuyerBriefs, mockClients } from '../mock/data';
+import {
+  anonymizeAssignment,
+  anonymizeProperty,
+  anonymizeBrief,
+  anonymizeNotification,
+} from '../utils/anonymize';
 
 // ─── Buyer Brief ──────────────────────────────────────────────────
 
@@ -7,10 +13,10 @@ import { mockAssignments, mockProperties, mockBuyerBriefs, mockClients } from '.
 export const getBuyerBrief = async (clientId) => {
   if (USE_MOCK) {
     await delay();
-    return mockBuyerBriefs.find(bb => bb.clientId === clientId);
+    return anonymizeBrief(mockBuyerBriefs.find(bb => bb.clientId === clientId));
   }
   const { data } = await api.get(`/api/client/${clientId}/brief`);
-  return data.data;
+  return anonymizeBrief(data.data);
 };
 
 // ─── Client Profile ───────────────────────────────────────────────
@@ -19,10 +25,10 @@ export const getBuyerBrief = async (clientId) => {
 export const getClientProfile = async (clientId) => {
   if (USE_MOCK) {
     await delay();
-    return mockClients.find(c => c.id === zohoContactId || c.zohoContactId === zohoContactId);
+    return anonymizeBrief(mockClients.find(c => c.id === clientId || c.zohoContactId === clientId));
   }
   const { data } = await api.get(`/api/client/${clientId}/profile`);
-  return data.data;
+  return anonymizeBrief(data.data);
 };
 
 // ─── Property Assignments ─────────────────────────────────────────
@@ -37,11 +43,14 @@ export const getClientProperties = async (clientId) => {
     const assignments = mockAssignments.filter(a => a.clientId === clientId);
     return assignments.map(a => {
       const property = mockProperties.find(p => p.id === a.propertyId);
-      return { ...a, property };
+      return { ...anonymizeAssignment(a), property: anonymizeProperty(property) };
     });
   }
   const { data } = await api.get(`/api/client/${clientId}/properties`);
-  return data.data;
+  return data.data.map(item => ({
+    ...anonymizeAssignment(item.assignment),
+    property: anonymizeProperty(item.property),
+  }));
 };
 
 /** GET /api/client/:zohoContactId/assignments */
@@ -103,7 +112,7 @@ export const saveClientNotes = async (assignmentId, notes) => {
 /** GET /api/client/:zohoContactId/notifications */
 export const getNotifications = async (zohoContactId) => {
   const { data } = await api.get(`/api/client/${zohoContactId}/notifications`);
-  return data;
+  return Array.isArray(data) ? data.map(n => anonymizeNotification(n)) : data;
 };
 
 /** GET /api/client/:zohoContactId/notifications/unread-count */
