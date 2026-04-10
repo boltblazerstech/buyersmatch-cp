@@ -5,7 +5,12 @@ import {
   getStoredUser,
   getPropertyDocuments,
 } from "../../api/client";
-import { anonymizeGreeting, anonymizeName, anonymizeProperty, anonymizeBrief } from "../../utils/anonymize";
+import {
+  anonymizeGreeting,
+  anonymizeName,
+  anonymizeProperty,
+  anonymizeBrief,
+} from "../../utils/anonymize";
 import Layout from "../../components/Layout";
 import {
   Bed,
@@ -184,8 +189,8 @@ const BriefField = ({ label, value, highlight }) => (
 
 const BuyerBriefView = ({ brief }) => {
   const notesKey = `bm_brief_notes_${brief?.zohoBriefId}`;
-  const [myNotes, setMyNotes] = useState(
-    () => (brief?.zohoBriefId ? localStorage.getItem(notesKey) || "" : ""),
+  const [myNotes, setMyNotes] = useState(() =>
+    brief?.zohoBriefId ? localStorage.getItem(notesKey) || "" : "",
   );
   const [saved, setSaved] = useState(false);
 
@@ -449,7 +454,12 @@ const Dashboard = () => {
 
         const propertiesWithImages = await Promise.all(
           assignments.map(async (item) => {
-            if (!item.propertyId) return { ...item, firstImage: null, property: anonymizeProperty(item.property) };
+            if (!item.propertyId)
+              return {
+                ...item,
+                firstImage: null,
+                property: anonymizeProperty(item.property),
+              };
             try {
               const docs = await getPropertyDocuments(item.propertyId);
               return {
@@ -458,13 +468,17 @@ const Dashboard = () => {
                 property: anonymizeProperty(item.property),
               };
             } catch {
-              return { ...item, firstImage: null, property: anonymizeProperty(item.property) };
+              return {
+                ...item,
+                firstImage: null,
+                property: anonymizeProperty(item.property),
+              };
             }
           }),
         );
 
         setProperties(propertiesWithImages);
-        const loaded = (userBriefs || []).map(b => anonymizeBrief(b));
+        const loaded = (userBriefs || []).map((b) => anonymizeBrief(b));
         setBriefs(loaded);
         // Default to first active brief
         const firstActive = loaded.find(
@@ -576,11 +590,13 @@ const Dashboard = () => {
         <h1 className="text-3xl font-bold text-white mb-1">
           Welcome back,{" "}
           <span className="text-teal">
-            {anonymizeGreeting(user?.greetingName) || anonymizeName(user?.fullName) || "Client"}
+            {anonymizeGreeting(user?.greetingName) ||
+              anonymizeName(user?.fullName) ||
+              "Client"}
           </span>
         </h1>
         <p className="text-gray-400">
-          Here's your Buyers Match portal overview.
+          Here's your Property Pulse portal overview.
         </p>
       </div>
 
