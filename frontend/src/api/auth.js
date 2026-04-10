@@ -76,13 +76,22 @@ export const logout = async () => {
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────
+
+// Ensure clientId is always present — old sessions or linter-stripped DEMO_USER
+// may only have zohoContactId; normalise so every call site can rely on clientId.
+const normaliseClientUser = (u) => {
+  if (!u) return u;
+  if (u.clientId) return u;
+  return { ...u, clientId: u.zohoContactId || u.id };
+};
+
 export const getStoredUser = (rolePreference = null) => {
   if (rolePreference === 'ADMIN') {
     return JSON.parse(localStorage.getItem(STORAGE_KEYS.ADMIN_USER));
   }
   if (rolePreference === 'CLIENT') {
-    return JSON.parse(localStorage.getItem(STORAGE_KEYS.CLIENT_USER));
+    return normaliseClientUser(JSON.parse(localStorage.getItem(STORAGE_KEYS.CLIENT_USER)));
   }
-  // Default to client if no preference
-  return JSON.parse(localStorage.getItem(STORAGE_KEYS.CLIENT_USER)) || JSON.parse(localStorage.getItem(STORAGE_KEYS.ADMIN_USER));
+  const clientUser = normaliseClientUser(JSON.parse(localStorage.getItem(STORAGE_KEYS.CLIENT_USER)));
+  return clientUser || JSON.parse(localStorage.getItem(STORAGE_KEYS.ADMIN_USER));
 };

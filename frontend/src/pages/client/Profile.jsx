@@ -24,39 +24,45 @@ const Profile = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!user || !user.clientId) {
+      const clientId = user?.clientId;
+      if (!clientId) {
         setLoading(false);
         return;
       }
 
-      try {
-        const [profileData, briefData, assignmentsData] = await Promise.all([
-          getClientProfile(user.clientId),
-          getBuyerBrief(user.clientId),
-          getClientProperties(user.clientId)
-        ]);
+      // Fetch all three independently so one failure doesn't blank the page
+      const [profileData, briefData, assignmentsData] = await Promise.allSettled([
+        getClientProfile(clientId),
+        getBuyerBrief(clientId),
+        getClientProperties(clientId),
+      ]);
 
-        const { assignments = [] } = assignmentsData;
-        
+      if (profileData.status === 'fulfilled' && profileData.value) {
+        const p = profileData.value;
         setProfile({
-          ...profileData,
-          fullName:      anonymizeName(profileData?.fullName),
-          email:         anonymizeEmail(profileData?.email),
-          secondaryEmail: profileData?.secondaryEmail ? anonymizeEmail(profileData.secondaryEmail) : null,
-          greetingName:  anonymizeGreeting(profileData?.greetingName),
-          jointBuyerName: profileData?.jointBuyerName ? anonymizeCompany(profileData.jointBuyerName) : null,
+          ...p,
+          fullName:       anonymizeName(p.fullName),
+          email:          anonymizeEmail(p.email),
+          secondaryEmail: p.secondaryEmail ? anonymizeEmail(p.secondaryEmail) : null,
+          greetingName:   anonymizeGreeting(p.greetingName),
+          jointBuyerName: p.jointBuyerName ? anonymizeCompany(p.jointBuyerName) : null,
         });
-        setBrief(briefData);
+      }
+
+      if (briefData.status === 'fulfilled' && briefData.value) {
+        setBrief(briefData.value);
+      }
+
+      if (assignmentsData.status === 'fulfilled' && assignmentsData.value) {
+        const assignments = assignmentsData.value?.assignments || [];
         setStats({
-          total: assignments.length,
-          pending: assignments.filter(a => a.portalStatus === 'PENDING').length,
+          total:    assignments.length,
+          pending:  assignments.filter(a => a.portalStatus === 'PENDING').length,
           accepted: assignments.filter(a => a.portalStatus === 'ACCEPTED').length,
         });
-      } catch (error) {
-        console.error("Error fetching profile data:", error);
-      } finally {
-        setLoading(false);
       }
+
+      setLoading(false);
     };
 
     fetchData();
