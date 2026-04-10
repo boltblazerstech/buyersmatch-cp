@@ -1,7 +1,7 @@
 import { isDemoMode, BRAND } from "../config/brand";
 
 export default function DemoBanner() {
-  if (!isDemoMode) return null;
+  return null;
 
   return (
     <div
