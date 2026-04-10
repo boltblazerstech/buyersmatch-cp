@@ -8,6 +8,7 @@ import {
   notifyPropertyAction,
   saveClientNotes,
 } from "../../api/client";
+import { anonymizeProperty, anonymizeAssignment } from "../../utils/anonymize";
 import Layout from "../../components/Layout";
 import { useToast } from "../../components/Toast";
 import { useDemoGuard } from "../../context/DemoContext";
@@ -82,13 +83,13 @@ const PropertyDetail = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [propData, docsData, allClientData] = await Promise.all([
+        // Property + docs are required — if these fail, show "not found"
+        const [propData, docsData] = await Promise.all([
           getPropertyDetail(id),
           getPropertyDocuments(id),
-          getClientProperties(user.clientId),
         ]);
 
-        setProperty(propData);
+        setProperty(anonymizeProperty(propData));
         setDocuments(docsData);
         const firstImg = docsData.propertyImages?.[0];
         const firstVid = docsData.videos?.[0];
@@ -97,15 +98,24 @@ const PropertyDetail = () => {
           setActiveImage(first.url);
           setActiveIsVideo(!firstImg);
         }
+      } catch (error) {
+        console.error("Error fetching property details:", error);
+      } finally {
+        setLoading(false);
+      }
 
-        // API now returns { assignments, briefs } — find the matching assignment
+      // Assignment lookup is optional — failure doesn't break the page
+      try {
+        const clientId = user?.clientId;
+        if (!clientId) return;
+        const allClientData = await getClientProperties(clientId);
         const assignments = allClientData?.assignments || allClientData || [];
         const matchedItem = assignments.find((a) => a.propertyId === id);
         if (matchedItem) {
-          setAssignment({
+          setAssignment(anonymizeAssignment({
             ...matchedItem.assignment,
             portalStatus: matchedItem.portalStatus,
-          });
+          }));
           setClientNotes(
             matchedItem.clientNotes ||
               matchedItem.assignment?.clientNotes ||
@@ -113,14 +123,12 @@ const PropertyDetail = () => {
           );
         }
       } catch (error) {
-        console.error("Error fetching property details:", error);
-      } finally {
-        setLoading(false);
+        console.error("Error fetching assignment details:", error);
       }
     };
 
     fetchData();
-  }, [id, user.clientId]);
+  }, [id]);
 
   const handleNotify = async (type) => {
     if (!assignment) return;

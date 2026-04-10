@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { getClientProfile, getBuyerBrief, getClientProperties, getStoredUser, logout } from '../../api/client';
+import { anonymizeName, anonymizeEmail, anonymizeGreeting, anonymizeCompany } from '../../utils/anonymize';
 import Layout from '../../components/Layout';
 import { 
   User, Mail, Users, Briefcase, DollarSign, MapPin, Home, 
@@ -37,7 +38,14 @@ const Profile = () => {
 
         const { assignments = [] } = assignmentsData;
         
-        setProfile(profileData);
+        setProfile({
+          ...profileData,
+          fullName:      anonymizeName(profileData?.fullName),
+          email:         anonymizeEmail(profileData?.email),
+          secondaryEmail: profileData?.secondaryEmail ? anonymizeEmail(profileData.secondaryEmail) : null,
+          greetingName:  anonymizeGreeting(profileData?.greetingName),
+          jointBuyerName: profileData?.jointBuyerName ? anonymizeCompany(profileData.jointBuyerName) : null,
+        });
         setBrief(briefData);
         setStats({
           total: assignments.length,

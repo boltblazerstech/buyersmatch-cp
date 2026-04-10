@@ -116,17 +116,20 @@ export function anonymizeAgentEmail(realEmail) {
 // Apply anonymization to full property object
 export function anonymizeProperty(property) {
   if (!isDemoMode || !property) return property
+  const streetOnly = property.addressLine1
+    ? anonymizeAddress(
+        property.addressLine1 + (property.suburb ? ', ' + property.suburb : '')
+      ).split(',')[0].trim()
+    : property.addressLine1
   return {
     ...property,
-    address: anonymizeAddress(property.address),
-    addressLine1: anonymizeAddress(
-      property.addressLine1 + ', ' +
-      (property.suburb || '')).split(',')[0],
-    agentName: anonymizeAgentName(property.agentName),
-    linkToListing: null,
-    stashLink: null,
-    cmaLink: null,
-    coreLogicLink: null,
+    address:      anonymizeAddress(property.address),
+    addressLine1: streetOnly,
+    agentName:    anonymizeAgentName(property.agentName),
+    linkToListing:  null,
+    stashLink:      null,
+    cmaLink:        null,
+    coreLogicLink:  null,
   }
 }
 
@@ -159,26 +162,34 @@ export function anonymizeBrief(brief) {
   if (!isDemoMode || !brief) return brief
   return {
     ...brief,
-    fullName: anonymizeName(brief.fullName),
-    email: anonymizeEmail(brief.email),
-    secondaryEmail: brief.secondaryEmail
-      ? anonymizeEmail(brief.secondaryEmail)
-      : null,
-    greetingName: anonymizeGreeting(brief.greetingName),
-    financerName: brief.financerName
-      ? anonymizeName(brief.financerName)
-      : null,
+    fullName:      anonymizeName(brief.fullName),
+    email:         anonymizeEmail(brief.email),
+    secondaryEmail: brief.secondaryEmail ? anonymizeEmail(brief.secondaryEmail) : null,
+    greetingName:  anonymizeGreeting(brief.greetingName),
+    financerName:  brief.financerName ? anonymizeName(brief.financerName) : null,
+    assignedAgents: Array.isArray(brief.assignedAgents)
+      ? brief.assignedAgents.map(a => anonymizeAgentName(a))
+      : brief.assignedAgents,
   }
+}
+
+const SCRUB_PATTERN = [
+  [/\b[A-Z][a-z]+ [A-Z][a-z]+\b/g,                                              'Client'],
+  [/\d+ [A-Z][a-z]+ (Street|Avenue|Drive|Road|Court|Place|Crescent|Close|Way)/g, 'the property'],
+  [/\S+@\S+\.\S+/g,                                                               'client@demo.com.au'],
+]
+
+function scrubText(text) {
+  if (!text) return text
+  return SCRUB_PATTERN.reduce((t, [re, sub]) => t.replace(re, sub), text)
 }
 
 // Apply anonymization to notification
 export function anonymizeNotification(notification) {
   if (!isDemoMode || !notification) return notification
-  // Replace any real address or name in message
   return {
     ...notification,
-    message: notification.message
-      .replace(/\b[A-Z][a-z]+ [A-Z][a-z]+\b/g, 'Client')
-      .replace(/\d+ [A-Z][a-z]+ (Street|Avenue|Drive|Road|Court|Place)/g, 'the property'),
+    title:   scrubText(notification.title),
+    message: scrubText(notification.message),
   }
 }

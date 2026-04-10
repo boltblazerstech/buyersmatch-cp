@@ -26,6 +26,7 @@ import {
 import { Link } from "react-router-dom";
 import { useToast } from "../../components/Toast";
 import { useDemoGuard } from "../../context/DemoContext";
+import { anonymizeName, anonymizeEmail } from "../../utils/anonymize";
 
 const ALPHANUM =
   "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
@@ -353,11 +354,11 @@ const ClientList = () => {
                       <td className="px-6 py-4 pl-8">
                         <div className="flex items-center gap-3">
                           <div className="w-9 h-9 rounded-xl bg-teal/10 flex items-center justify-center text-teal font-bold text-sm shrink-0">
-                            {(client.fullName || "?").charAt(0)}
+                            {(anonymizeName(client.fullName) || "?").charAt(0)}
                           </div>
                           <div>
                             <p className="text-sm font-bold text-white group-hover:text-teal transition-colors">
-                              {client.fullName || "Unnamed"}
+                              {anonymizeName(client.fullName) || "Unnamed"}
                             </p>
                             {client.zohoContactId && (
                               <p className="text-[10px] text-gray-500 font-mono mt-0.5">
@@ -371,7 +372,7 @@ const ClientList = () => {
                       {/* Email */}
                       <td className="px-6 py-4">
                         <p className="text-sm text-gray-300">
-                          {client.portalUser?.email || client.email || "—"}
+                          {anonymizeEmail(client.portalUser?.email || client.email) || "—"}
                         </p>
                       </td>
 

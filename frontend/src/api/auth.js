@@ -1,8 +1,17 @@
 import { api, adminApi, USE_MOCK, delay, STORAGE_KEYS } from './http';
 import { mockUsers } from '../mock/data';
+import { isDemoMode } from '../config/brand';
+import { DEMO_USER } from '../mock/demoData';
+
+const DEMO_EMAIL = 'demo@propertypulse.com.au';
+const DEMO_PASSWORD = 'demo123';
 
 // ─── Client Login ─────────────────────────────────────────────────
 export const login = async (email, password) => {
+  if (isDemoMode && email === DEMO_EMAIL && password === DEMO_PASSWORD) {
+    localStorage.setItem(STORAGE_KEYS.CLIENT_USER, JSON.stringify(DEMO_USER));
+    return DEMO_USER;
+  }
   if (USE_MOCK) {
     await delay();
     const user = mockUsers.find(u => u.email === email && u.password === password);

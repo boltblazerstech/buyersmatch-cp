@@ -1,26 +1,15 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { login } from "../api/client";
-import { Mail, Lock, Loader2, Eye, EyeOff } from "lucide-react";
+import { Mail, Lock, Loader2, Eye, EyeOff, User } from "lucide-react";
 import { isDemoMode, BRAND } from "../config/brand";
 
-const DEMO_CREDENTIALS = [
-  {
-    label: "Client View",
-    email: "demo.client1@propertypulse.com.au",
-    password: "Demo@1234",
-  },
-  {
-    label: "Client View 2",
-    email: "demo.client2@propertypulse.com.au",
-    password: "Demo@1234",
-  },
-  {
-    label: "Admin View",
-    email: "demo.admin@propertypulse.com.au",
-    password: "Demo@1234",
-  },
-];
+const DEMO_CREDENTIAL = {
+  label: "Demo Client Login",
+  role: "Client",
+  email: "demo@propertypulse.com.au",
+  password: "demo123",
+};
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -139,34 +128,43 @@ const Login = () => {
         </div>
 
         {isDemoMode && (
-          <div className="p-5 bg-[#24355A]/80 rounded-xl border backdrop-blur-sm" style={{ borderColor: BRAND.accent + '4D' }}>
-            <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: BRAND.accent }}>
-              Demo Credentials
-            </p>
-            <div className="space-y-2">
-              {DEMO_CREDENTIALS.map((cred) => (
-                <button
-                  key={cred.email}
-                  type="button"
-                  onClick={() => fillCredentials(cred)}
-                  className="w-full flex items-center justify-between px-4 py-3 rounded-lg bg-white/5 hover:bg-white/10 transition-all text-left group"
-                  style={{ cursor: 'pointer' }}
-                >
-                  <div>
-                    <p className="text-xs font-bold text-white group-hover:text-white/90">
-                      {cred.label}
-                    </p>
-                    <p className="text-[11px] text-gray-400 mt-0.5 font-mono">
-                      {cred.email}
-                    </p>
-                  </div>
-                  <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-md" style={{ color: BRAND.primary, background: BRAND.primary + '1A' }}>
-                    Use
+          <button
+            type="button"
+            onClick={() => fillCredentials(DEMO_CREDENTIAL)}
+            className="w-full text-left rounded-xl border-2 transition-all group"
+            style={{ borderColor: BRAND.primary + '80', background: BRAND.primary + '0D' }}
+            onMouseEnter={e => e.currentTarget.style.borderColor = BRAND.primary}
+            onMouseLeave={e => e.currentTarget.style.borderColor = BRAND.primary + '80'}
+          >
+            <div className="px-5 py-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Lock size={14} style={{ color: BRAND.primary }} />
+                  <span className="text-xs font-bold uppercase tracking-widest" style={{ color: BRAND.primary }}>
+                    Demo Access
                   </span>
-                </button>
-              ))}
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full" style={{ color: BRAND.dark, background: BRAND.primary }}>
+                  Click to auto-fill
+                </span>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <div className="flex items-center justify-center w-9 h-9 rounded-lg shrink-0" style={{ background: BRAND.primary + '1A' }}>
+                  <User size={18} style={{ color: BRAND.primary }} />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-bold text-white">{DEMO_CREDENTIAL.label}</p>
+                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded" style={{ color: BRAND.primary, background: BRAND.primary + '1A' }}>
+                      {DEMO_CREDENTIAL.role}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-gray-400 mt-0.5 font-mono truncate">{DEMO_CREDENTIAL.email}</p>
+                </div>
+              </div>
             </div>
-          </div>
+          </button>
         )}
       </div>
     </div>

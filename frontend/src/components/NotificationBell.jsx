@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Bell, Check, CheckCheck, Clock } from 'lucide-react';
 import { getNotifications, getUnreadCount, markAllRead, markOneRead, getStoredUser } from '../api/client';
+import { anonymizeNotification } from '../utils/anonymize';
 import { motion, AnimatePresence } from 'motion/react';
 
 const formatTimeAgo = (dateString) => {
@@ -53,7 +54,7 @@ const NotificationBell = () => {
 
     try {
       const result = await getNotifications(zohoContactId);
-      setNotifications(result.data ?? []);
+      setNotifications((result.data ?? []).map(n => anonymizeNotification(n)));
       await markAllRead(zohoContactId);
       setUnreadCount(0);
       setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));

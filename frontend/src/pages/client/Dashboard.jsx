@@ -5,6 +5,7 @@ import {
   getStoredUser,
   getPropertyDocuments,
 } from "../../api/client";
+import { anonymizeGreeting, anonymizeName, anonymizeProperty, anonymizeBrief } from "../../utils/anonymize";
 import Layout from "../../components/Layout";
 import {
   Bed,
@@ -30,6 +31,9 @@ import {
   XCircle,
   FileText,
   Briefcase,
+  MessageSquare,
+  Pencil,
+  Save,
 } from "lucide-react";
 
 const ComparisonModal = ({ properties, onClose }) => {
@@ -179,6 +183,20 @@ const BriefField = ({ label, value, highlight }) => (
 );
 
 const BuyerBriefView = ({ brief }) => {
+  const notesKey = `bm_brief_notes_${brief?.zohoBriefId}`;
+  const [myNotes, setMyNotes] = useState(
+    () => (brief?.zohoBriefId ? localStorage.getItem(notesKey) || "" : ""),
+  );
+  const [saved, setSaved] = useState(false);
+
+  const handleSaveNotes = () => {
+    if (brief?.zohoBriefId) {
+      localStorage.setItem(notesKey, myNotes);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    }
+  };
+
   if (!brief) return null;
   return (
     <div className="space-y-5">
@@ -308,6 +326,58 @@ const BuyerBriefView = ({ brief }) => {
             </div>
           </BriefSection>
         )}
+
+      {/* Buyers Match Notes */}
+      {brief.buyerMatchNotes && (
+        <div className="bg-navy border border-white/5 rounded-2xl overflow-hidden">
+          <div className="px-6 py-4 bg-white/[0.03] border-b border-white/5 flex items-center gap-2">
+            <MessageSquare size={15} className="text-teal" />
+            <p className="text-[11px] font-bold text-teal uppercase tracking-widest">
+              Buyers Match Notes
+            </p>
+          </div>
+          <div className="px-6 py-5">
+            <p className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">
+              {brief.buyerMatchNotes}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* My Notes */}
+      <div className="bg-navy border border-white/5 rounded-2xl overflow-hidden">
+        <div className="px-6 py-4 bg-white/[0.03] border-b border-white/5 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Pencil size={15} className="text-gold" />
+            <p className="text-[11px] font-bold text-gold uppercase tracking-widest">
+              My Notes
+            </p>
+          </div>
+          <button
+            onClick={handleSaveNotes}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all ${
+              saved
+                ? "bg-teal/20 text-teal border border-teal/30"
+                : "bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-white/10"
+            }`}
+          >
+            <Save size={12} />
+            {saved ? "Saved" : "Save"}
+          </button>
+        </div>
+        <div className="px-6 py-5">
+          <textarea
+            value={myNotes}
+            onChange={(e) => setMyNotes(e.target.value)}
+            placeholder="Add your personal notes about this brief — goals, preferences, things to remember..."
+            rows={5}
+            className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-teal/40 focus:bg-white/[0.05] transition-all resize-none"
+          />
+          <p className="text-[10px] text-gray-600 mt-2">
+            Notes are saved locally on this device.
+          </p>
+        </div>
+      </div>
     </div>
   );
 };
@@ -379,21 +449,22 @@ const Dashboard = () => {
 
         const propertiesWithImages = await Promise.all(
           assignments.map(async (item) => {
-            if (!item.propertyId) return { ...item, firstImage: null };
+            if (!item.propertyId) return { ...item, firstImage: null, property: anonymizeProperty(item.property) };
             try {
               const docs = await getPropertyDocuments(item.propertyId);
               return {
                 ...item,
                 firstImage: docs.propertyImages?.[0]?.url || null,
+                property: anonymizeProperty(item.property),
               };
             } catch {
-              return { ...item, firstImage: null };
+              return { ...item, firstImage: null, property: anonymizeProperty(item.property) };
             }
           }),
         );
 
         setProperties(propertiesWithImages);
-        const loaded = userBriefs || [];
+        const loaded = (userBriefs || []).map(b => anonymizeBrief(b));
         setBriefs(loaded);
         // Default to first active brief
         const firstActive = loaded.find(
@@ -505,7 +576,7 @@ const Dashboard = () => {
         <h1 className="text-3xl font-bold text-white mb-1">
           Welcome back,{" "}
           <span className="text-teal">
-            {user?.greetingName || user?.fullName || "Client"}
+            {anonymizeGreeting(user?.greetingName) || anonymizeName(user?.fullName) || "Client"}
           </span>
         </h1>
         <p className="text-gray-400">

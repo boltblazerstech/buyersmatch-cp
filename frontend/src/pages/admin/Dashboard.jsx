@@ -12,6 +12,7 @@ import {
   Plus
 } from 'lucide-react';
 import { getAllClients, getAllProperties, getAllResponses } from '../../api/client';
+import { anonymizeName, anonymizeAddress } from '../../utils/anonymize';
 import { Link } from 'react-router-dom';
 
 const AdminDashboard = () => {
@@ -107,13 +108,13 @@ const AdminDashboard = () => {
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
                             <div className="w-8 h-8 rounded-full bg-teal/20 flex items-center justify-center text-teal text-xs font-bold">
-                              {res.client?.fullName?.charAt(0)}
+                              {anonymizeName(res.client?.fullName)?.charAt(0)}
                             </div>
-                            <p className="text-sm font-bold text-white group-hover:text-teal transition-colors">{res.client?.fullName}</p>
+                            <p className="text-sm font-bold text-white group-hover:text-teal transition-colors">{anonymizeName(res.client?.fullName)}</p>
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <p className="text-sm text-gray-400 truncate max-w-[400px]">{res.property?.address}</p>
+                          <p className="text-sm text-gray-400 truncate max-w-[400px]">{anonymizeAddress(res.property?.address)}</p>
                         </td>
                         <td className="px-6 py-4">
                           <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border ${

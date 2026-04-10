@@ -32,6 +32,7 @@ import {
   getClientProperties,
   getPropertyDocuments,
 } from "../../api/client";
+import { anonymizeName, anonymizeEmail, anonymizeProperty, anonymizeBrief } from "../../utils/anonymize";
 
 // ─── Formatting helpers ────────────────────────────────────────────────────────
 const fmt = (v) => (v != null ? v : "—");
@@ -345,7 +346,7 @@ const ClientDetail = () => {
         setClient(profile);
 
         const { assignments, briefs: userBriefs } = responseData;
-        const loaded = userBriefs || [];
+        const loaded = (userBriefs || []).map(b => anonymizeBrief(b));
         setBriefs(loaded);
 
         const firstActive = loaded.find(
@@ -355,15 +356,16 @@ const ClientDetail = () => {
 
         const propertiesWithImages = await Promise.all(
           assignments.map(async (item) => {
-            if (!item.propertyId) return { ...item, firstImage: null };
+            if (!item.propertyId) return { ...item, firstImage: null, property: anonymizeProperty(item.property) };
             try {
               const docs = await getPropertyDocuments(item.propertyId);
               return {
                 ...item,
                 firstImage: docs.propertyImages?.[0]?.url || null,
+                property: anonymizeProperty(item.property),
               };
             } catch {
-              return { ...item, firstImage: null };
+              return { ...item, firstImage: null, property: anonymizeProperty(item.property) };
             }
           }),
         );
@@ -452,8 +454,9 @@ const ClientDetail = () => {
     });
   };
 
-  const clientName =
-    client?.fullName || client?.buyerBrief?.fullName || "Client";
+  const clientName = anonymizeName(
+    client?.fullName || client?.buyerBrief?.fullName
+  ) || "Client";
 
   if (loading) {
     return (
@@ -489,10 +492,9 @@ const ClientDetail = () => {
             <div>
               <h1 className="text-2xl font-bold text-white">{clientName}</h1>
               <p className="text-gray-400 text-sm mt-1">
-                {client?.loginEmail ||
-                  client?.email ||
-                  client?.buyerBrief?.email ||
-                  ""}
+                {anonymizeEmail(
+                  client?.loginEmail || client?.email || client?.buyerBrief?.email
+                ) || ""}
               </p>
               {client?.zohoContactId && (
                 <p className="text-xs font-mono text-gray-500 mt-0.5">
