@@ -71,6 +71,7 @@ const PropertyDetail = () => {
   const [loading, setLoading] = useState(true);
   const [activeImage, setActiveImage] = useState(null);
   const [activeIsVideo, setActiveIsVideo] = useState(false);
+  const [activeIsYoutube, setActiveIsYoutube] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(null); // 'ACCEPT' or 'REJECT'
   const [remark, setRemark] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
@@ -91,12 +92,18 @@ const PropertyDetail = () => {
 
         setProperty(anonymizeProperty(propData));
         setDocuments(docsData);
-        const firstImg = docsData.propertyImages?.[0];
+        const firstExt = docsData.externalVideos?.[0];
         const firstVid = docsData.videos?.[0];
-        const first = firstImg || firstVid;
-        if (first) {
-          setActiveImage(first.url);
-          setActiveIsVideo(!firstImg);
+        const firstImg = docsData.propertyImages?.[0];
+        if (firstExt) {
+          const embedUrl = firstExt.includes("youtube.com/watch?v=") ? firstExt.replace("watch?v=", "embed/") : firstExt.includes("youtu.be/") ? "https://www.youtube.com/embed/" + firstExt.split("youtu.be/")[1] : firstExt.includes("youtube.com/shorts/") ? firstExt.replace("youtube.com/shorts/", "youtube.com/embed/") : firstExt;
+          setActiveImage(embedUrl);
+          setActiveIsYoutube(true);
+        } else if (firstVid) {
+          setActiveImage(firstVid.url);
+          setActiveIsVideo(true);
+        } else if (firstImg) {
+          setActiveImage(firstImg.url);
         }
       } catch (error) {
         console.error("Error fetching property details:", error);
@@ -351,20 +358,46 @@ const PropertyDetail = () => {
         <div className="space-y-12">
           {/* 1. Property Gallery — images + videos */}
           {(documents.propertyImages.length > 0 ||
-            documents.videos.length > 0) &&
+            documents.videos.length > 0 ||
+            documents.externalVideos.length > 0) &&
             (() => {
               const galleryItems = [
+                ...documents.externalVideos.map((url) => {
+                  let videoId = "";
+                  if (url.includes("youtube.com/watch?v=")) videoId = url.split("v=")[1].split("&")[0];
+                  else if (url.includes("youtu.be/")) videoId = url.split("youtu.be/")[1].split("?")[0];
+                  else if (url.includes("youtube.com/shorts/")) videoId = url.split("shorts/")[1].split("?")[0];
+
+                  const embedUrl = videoId ? `https://www.youtube.com/embed/${videoId}` : url;
+                  const thumbUrl = videoId ? `https://img.youtube.com/vi/${videoId}/mqdefault.jpg` : null;
+                  return {
+                    url: url,
+                    embedUrl: embedUrl,
+                    thumbUrl: thumbUrl,
+                    mediaType: "youtube"
+                  };
+                }),
+                ...documents.videos.map((d) => ({ ...d, mediaType: "video" })),
                 ...documents.propertyImages.map((d) => ({
                   ...d,
                   mediaType: "image",
                 })),
-                ...documents.videos.map((d) => ({ ...d, mediaType: "video" })),
               ];
               return (
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   {/* Main viewer */}
                   <div className="md:col-span-3 aspect-[4/3] rounded-3xl overflow-hidden border border-teal/20 bg-navy">
-                    {activeIsVideo ? (
+                    {activeIsYoutube ? (
+                      <iframe
+                        width="100%"
+                        height="100%"
+                        src={activeImage}
+                        title="Video"
+                        frameBorder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      />
+                    ) : activeIsVideo ? (
                       <video
                         key={activeImage}
                         controls
@@ -385,13 +418,14 @@ const PropertyDetail = () => {
                   {/* Thumbnails */}
                   <div className="flex md:flex-col gap-4 overflow-x-auto md:overflow-y-auto max-h-[500px] scrollbar-hide">
                     {galleryItems.map((item, idx) => {
-                      const isActive = activeImage === item.url;
+                      const isActive = activeImage === (item.embedUrl || item.url);
                       return (
                         <button
                           key={idx}
                           onClick={() => {
-                            setActiveImage(item.url);
+                            setActiveImage(item.embedUrl || item.url);
                             setActiveIsVideo(item.mediaType === "video");
+                            setActiveIsYoutube(item.mediaType === "youtube");
                           }}
                           className={`relative flex-shrink-0 w-24 h-24 md:w-full md:h-32 rounded-2xl overflow-hidden border-2 transition-all ${isActive ? "border-teal scale-95" : "border-transparent opacity-50 hover:opacity-100"}`}
                         >
@@ -402,6 +436,16 @@ const PropertyDetail = () => {
                               preload="metadata"
                               className="w-full h-full object-cover pointer-events-none"
                             />
+                          ) : item.mediaType === "youtube" && item.thumbUrl ? (
+                            <img
+                              src={item.thumbUrl}
+                              alt="Youtube Video"
+                              className="w-full h-full object-cover"
+                            />
+                          ) : item.mediaType === "youtube" ? (
+                            <div className="w-full h-full bg-navy flex items-center justify-center">
+                              <Play className="text-white/30" size={24} />
+                            </div>
                           ) : (
                             <img
                               src={item.url}
@@ -410,7 +454,7 @@ const PropertyDetail = () => {
                               referrerPolicy="no-referrer"
                             />
                           )}
-                          {item.mediaType === "video" && (
+                          {(item.mediaType === "video" || item.mediaType === "youtube") && (
                             <div className="absolute inset-0 flex items-center justify-center bg-black/30">
                               <div className="w-8 h-8 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
                                 <Play
@@ -923,11 +967,8 @@ const PropertyDetail = () => {
           {/* 5. Documents & Media */}
           {(() => {
             const hasAny =
-              documents.videos.length > 0 ||
-              documents.images.length > 0 ||
               documents.pdfs.length > 0 ||
               documents.others.length > 0 ||
-              documents.externalVideos.length > 0 ||
               [
                 assignment?.bnpReportLink,
                 assignment?.financeLetterLink,
@@ -969,191 +1010,6 @@ const PropertyDetail = () => {
                   </h3>
                 </div>
 
-                {/* ── Videos (always inline player) ── */}
-                {documents.videos.length > 0 && (
-                  <div className="space-y-4">
-                    <p className="text-[10px] font-bold text-teal uppercase tracking-widest flex items-center gap-2">
-                      <Play size={12} /> Videos
-                    </p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {documents.videos.map((vid, idx) => (
-                        <div key={idx} className="space-y-2">
-                          <div className="aspect-video rounded-2xl overflow-hidden border border-teal/20 bg-navy">
-                            <video
-                              controls
-                              className="w-full h-full"
-                              src={vid.url}
-                            />
-                          </div>
-                          <div className="flex items-center justify-between px-1">
-                            <div className="min-w-0">
-                              <p className="text-xs font-bold text-white leading-tight">
-                                {vid.caption || vid.fileName || "—"}
-                              </p>
-                              <p className="text-[10px] text-teal/70 font-medium mt-0.5">
-                                {typeLabel(vid.documentType)}
-                                {fmtSize(vid.fileSizeBytes)
-                                  ? ` · ${fmtSize(vid.fileSizeBytes)}`
-                                  : ""}
-                              </p>
-                            </div>
-                            {vid.url && (
-                              <button
-                                onClick={() =>
-                                  handleDownload(
-                                    vid.url,
-                                    vid.fileName || vid.caption || "video",
-                                  )
-                                }
-                                className="p-2 text-gray-500 hover:text-teal bg-white/5 rounded-lg hover:bg-white/10 transition-colors shrink-0 ml-2"
-                                title="Download"
-                              >
-                                <Download size={15} />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* ── External Videos ── */}
-                {documents.externalVideos.length > 0 && (
-                  <div className="space-y-4">
-                    <p className="text-[10px] font-bold text-teal uppercase tracking-widest flex items-center gap-2">
-                      <Play size={12} /> Video Walkthrough
-                    </p>
-                    <div className="space-y-4">
-                      {documents.externalVideos.map((url, idx) => {
-                        const embedUrl = url.includes("youtube.com/watch?v=")
-                          ? url.replace("watch?v=", "embed/")
-                          : url.includes("youtu.be/")
-                            ? "https://www.youtube.com/embed/" +
-                              url.split("youtu.be/")[1]
-                            : null;
-                        return embedUrl ? (
-                          <div
-                            key={idx}
-                            className="aspect-video rounded-2xl overflow-hidden border border-teal/20 bg-navy"
-                          >
-                            <iframe
-                              width="100%"
-                              height="100%"
-                              src={embedUrl}
-                              title={`Video ${idx + 1}`}
-                              frameBorder="0"
-                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                              allowFullScreen
-                            />
-                          </div>
-                        ) : (
-                          <a
-                            key={idx}
-                            href={url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-3 p-4 bg-navy border border-teal/20 rounded-2xl hover:border-teal/50 transition-all"
-                          >
-                            <div className="w-10 h-10 rounded-xl bg-teal/10 flex items-center justify-center text-teal shrink-0">
-                              <Play size={18} />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-sm font-bold text-white">
-                                Property Video Link
-                              </p>
-                              <p className="text-xs text-teal truncate">
-                                {url}
-                              </p>
-                            </div>
-                            <ExternalLink
-                              size={16}
-                              className="text-gray-500 shrink-0"
-                            />
-                          </a>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* ── Non-property Images (Due Diligence etc — always inline) ── */}
-                {documents.images.length > 0 && (
-                  <div className="space-y-4">
-                    <p className="text-[10px] font-bold text-teal uppercase tracking-widest flex items-center gap-2">
-                      <Eye size={12} /> Images
-                    </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {documents.images.map((img, idx) => (
-                        <div key={idx} className="space-y-2">
-                          <div
-                            className="aspect-[4/3] rounded-2xl overflow-hidden border border-white/10 bg-navy cursor-pointer relative group"
-                            onClick={() =>
-                              setPreviewImg({
-                                url: img.url,
-                                caption: img.caption || img.fileName,
-                              })
-                            }
-                          >
-                            <img
-                              src={img.url}
-                              alt={img.caption || img.fileName || "Image"}
-                              className="w-full h-full object-cover"
-                              referrerPolicy="no-referrer"
-                            />
-                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center">
-                              <div className="opacity-0 group-hover:opacity-100 transition-opacity w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                                <Eye size={18} className="text-white" />
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex items-center justify-between px-1">
-                            <div className="min-w-0">
-                              <p className="text-xs font-bold text-white leading-tight">
-                                {img.caption || img.fileName || "—"}
-                              </p>
-                              <p className="text-[10px] text-teal/70 font-medium mt-0.5">
-                                {typeLabel(img.documentType)}
-                                {fmtSize(img.fileSizeBytes)
-                                  ? ` · ${fmtSize(img.fileSizeBytes)}`
-                                  : ""}
-                              </p>
-                            </div>
-                            {img.url && (
-                              <div className="flex gap-2 shrink-0 ml-2">
-                                <button
-                                  onClick={() =>
-                                    setPreviewImg({
-                                      url: img.url,
-                                      caption: img.caption || img.fileName,
-                                    })
-                                  }
-                                  className="p-2 text-teal bg-teal/10 rounded-lg hover:bg-teal hover:text-navy transition-colors"
-                                  title="View"
-                                >
-                                  <Eye size={15} />
-                                </button>
-                                <button
-                                  onClick={() =>
-                                    handleDownload(
-                                      img.url,
-                                      img.fileName || img.caption || "image",
-                                    )
-                                  }
-                                  className="p-2 text-gray-500 hover:text-teal bg-white/5 rounded-lg hover:bg-white/10 transition-colors"
-                                  title="Download"
-                                >
-                                  <Download size={15} />
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
                 {/* ── PDFs & Other Documents ── */}
                 {(documents.pdfs.length > 0 || documents.others.length > 0) && (
                   <div className="space-y-3">
@@ -1183,23 +1039,24 @@ const PropertyDetail = () => {
                           <div className="flex gap-2 shrink-0">
                             {doc.url && (
                               <button
-                                onClick={() => setPreviewDoc(doc.url)}
+                                onClick={() => {
+                                  const isImg = doc.fileExtension?.toLowerCase() === 'jpg' || 
+                                                doc.fileExtension?.toLowerCase() === 'jpeg' || 
+                                                doc.fileExtension?.toLowerCase() === 'png' || 
+                                                doc.url?.toLowerCase().endsWith('.jpg') || 
+                                                doc.url?.toLowerCase().endsWith('.jpeg') || 
+                                                doc.url?.toLowerCase().endsWith('.png');
+                                  if (isImg) {
+                                    setPreviewImg({ url: doc.url, caption: doc.caption || doc.fileName || "Preview" });
+                                  } else {
+                                    setPreviewDoc(doc.url);
+                                  }
+                                }}
                                 className="p-2 text-teal bg-teal/10 rounded-lg hover:bg-teal hover:text-navy transition-colors"
-                                title="Preview"
+                                title="View Document"
                               >
                                 <Eye size={16} />
                               </button>
-                            )}
-                            {doc.url && (
-                              <a
-                                href={doc.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="p-2 text-gray-500 hover:text-teal bg-white/5 rounded-lg hover:bg-white/10 transition-colors"
-                                title="Download"
-                              >
-                                <Download size={16} />
-                              </a>
                             )}
                           </div>
                         </div>

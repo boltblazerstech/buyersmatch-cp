@@ -4,6 +4,7 @@ import {
   getClientProperties,
   getStoredUser,
   getPropertyDocuments,
+  getBuyerBrief,
 } from "../../api/client";
 import {
   anonymizeGreeting,
@@ -188,18 +189,16 @@ const BriefField = ({ label, value, highlight }) => (
 );
 
 const BuyerBriefView = ({ brief }) => {
-  const notesKey = `bm_brief_notes_${brief?.zohoBriefId}`;
+  const notesKey = `bm_brief_notes_${brief?.zohoBriefId || brief?.id}`;
   const [myNotes, setMyNotes] = useState(() =>
-    brief?.zohoBriefId ? localStorage.getItem(notesKey) || "" : "",
+    localStorage.getItem(notesKey) || "",
   );
   const [saved, setSaved] = useState(false);
 
   const handleSaveNotes = () => {
-    if (brief?.zohoBriefId) {
-      localStorage.setItem(notesKey, myNotes);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-    }
+    localStorage.setItem(notesKey, myNotes);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
   };
 
   if (!brief) return null;
@@ -208,7 +207,7 @@ const BuyerBriefView = ({ brief }) => {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3 px-1">
         <div>
-          <p className="text-xs text-gray-500 font-mono">{brief.zohoBriefId}</p>
+          <p className="text-xs text-gray-500 font-mono">{brief.zohoBriefId || brief.id}</p>
         </div>
         <div className="flex items-center gap-2">
           {brief.priority && (
@@ -216,15 +215,25 @@ const BuyerBriefView = ({ brief }) => {
               {brief.priority}
             </span>
           )}
+          {brief.preApproved && (
+            <span className="px-3 py-1 bg-green-500/10 border border-green-500/30 text-green-400 text-[10px] font-bold rounded-full uppercase tracking-widest">
+              ✓ Pre-Approved
+            </span>
+          )}
           <span
             className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border ${
-              brief.status?.toLowerCase() === "active"
+              brief.status?.toLowerCase()?.includes("confirmed") || brief.status?.toLowerCase() === "active"
                 ? "bg-teal/10 border-teal/30 text-teal"
                 : "bg-white/5 border-white/10 text-gray-400"
             }`}
           >
             {brief.status || "Active"}
           </span>
+          {brief.tags?.map(tag => (
+            <span key={tag} className="px-3 py-1 bg-white/5 border border-white/10 text-gray-300 text-[10px] font-bold rounded-full">
+              #{tag}
+            </span>
+          ))}
         </div>
       </div>
 
@@ -402,7 +411,6 @@ const isPurchasedItem = (item) => {
 
 const Dashboard = () => {
   const [properties, setProperties] = useState([]);
-  const [briefs, setBriefs] = useState([]);
   const [selectedBriefId, setSelectedBriefId] = useState("ALL");
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -412,25 +420,13 @@ const Dashboard = () => {
 
   // Main page tabs
   const [mainTab, setMainTab] = useState("PROPERTIES"); // 'BRIEF' | 'PROPERTIES'
-  // Which active brief to show in the brief tab
-  const [selectedActiveBriefId, setSelectedActiveBriefId] = useState(null);
+  // Direct brief data fetched via getBuyerBrief
+  const [myBrief, setMyBrief] = useState(null);
+  const [briefLoading, setBriefLoading] = useState(false);
 
   const navigate = useNavigate();
   const location = useLocation();
   const user = getStoredUser();
-
-  const activeBriefs = useMemo(
-    () => briefs.filter((b) => b.status?.toLowerCase() !== "closed"),
-    [briefs],
-  );
-
-  const displayedBrief = useMemo(
-    () =>
-      activeBriefs.find((b) => b.zohoBriefId === selectedActiveBriefId) ||
-      activeBriefs[0] ||
-      null,
-    [activeBriefs, selectedActiveBriefId],
-  );
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -450,7 +446,7 @@ const Dashboard = () => {
 
       try {
         const responseData = await getClientProperties(user.clientId);
-        const { assignments, briefs: userBriefs } = responseData;
+        const { assignments } = responseData;
 
         const propertiesWithImages = await Promise.all(
           assignments.map(async (item) => {
@@ -478,13 +474,6 @@ const Dashboard = () => {
         );
 
         setProperties(propertiesWithImages);
-        const loaded = (userBriefs || []).map((b) => anonymizeBrief(b));
-        setBriefs(loaded);
-        // Default to first active brief
-        const firstActive = loaded.find(
-          (b) => b.status?.toLowerCase() !== "closed",
-        );
-        if (firstActive) setSelectedActiveBriefId(firstActive.zohoBriefId);
       } catch (error) {
         console.error("Error fetching properties:", error);
       } finally {
@@ -604,11 +593,21 @@ const Dashboard = () => {
       <div className="flex gap-1 bg-navy border border-white/10 rounded-2xl p-1 mb-8 w-fit">
         {[
           { key: "PROPERTIES", label: "My Properties", icon: Building2 },
-          { key: "BRIEF", label: "My Buyer Brief", icon: Briefcase },
+          { key: "BRIEF", label: "My Brief", icon: Briefcase },
         ].map(({ key, label, icon: Icon }) => (
           <button
             key={key}
-            onClick={() => setMainTab(key)}
+            onClick={() => {
+              setMainTab(key);
+              // Fetch brief on first click
+              if (key === "BRIEF" && !myBrief && !briefLoading && user?.clientId) {
+                setBriefLoading(true);
+                getBuyerBrief(user.clientId)
+                  .then((b) => { if (b) setMyBrief(anonymizeBrief(b)); })
+                  .catch((err) => console.error("Error fetching brief:", err))
+                  .finally(() => setBriefLoading(false));
+              }
+            }}
             className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${
               mainTab === key
                 ? "bg-teal text-navy shadow"
@@ -621,51 +620,27 @@ const Dashboard = () => {
         ))}
       </div>
 
-      {/* ── MY BUYER BRIEF TAB ─────────────────────────────────────────────── */}
+      {/* ── MY BRIEF TAB ─────────────────────────────────────────────── */}
       {mainTab === "BRIEF" && (
         <div>
-          {activeBriefs.length === 0 ? (
+          {briefLoading ? (
+            <div className="flex flex-col items-center justify-center py-20">
+              <Loader2 className="animate-spin text-teal mb-4" size={40} />
+              <p className="text-gray-400 animate-pulse">Loading your brief...</p>
+            </div>
+          ) : !myBrief ? (
             <div className="flex flex-col items-center justify-center py-20 bg-white/5 border border-dashed border-white/10 rounded-3xl">
               <Briefcase className="text-teal mb-4" size={40} />
               <h3 className="text-xl font-bold text-white mb-2">
-                No active buyer briefs
+                No active buyer brief
               </h3>
               <p className="text-gray-400 text-center max-w-sm">
-                Your buyer briefs will appear here once they have been set up by
+                Your buyer brief will appear here once it has been set up by
                 your agent.
               </p>
             </div>
           ) : (
-            <>
-              {/* Brief selector dropdown — only when more than 1 active brief */}
-              {activeBriefs.length > 1 && (
-                <div className="flex items-center gap-3 mb-6">
-                  <span className="text-xs font-bold text-gray-500 uppercase tracking-widest whitespace-nowrap">
-                    Viewing brief:
-                  </span>
-                  <div className="relative">
-                    <select
-                      value={selectedActiveBriefId || ""}
-                      onChange={(e) => setSelectedActiveBriefId(e.target.value)}
-                      className="appearance-none bg-navy border border-teal/30 rounded-xl px-4 py-2 pr-10 text-sm font-bold text-teal focus:outline-none focus:border-teal transition-all cursor-pointer"
-                    >
-                      {activeBriefs.map((b) => (
-                        <option key={b.zohoBriefId} value={b.zohoBriefId}>
-                          {b.zohoBriefId}
-                          {b.status ? ` — ${b.status}` : ""}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown
-                      size={14}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-teal pointer-events-none"
-                    />
-                  </div>
-                </div>
-              )}
-
-              <BuyerBriefView brief={displayedBrief} />
-            </>
+            <BuyerBriefView brief={myBrief} />
           )}
         </div>
       )}
@@ -722,33 +697,7 @@ const Dashboard = () => {
               ))}
             </div>
 
-            {activeBriefs.length > 1 && (
-              <div className="flex items-center gap-3">
-                <span className="text-xs font-bold text-gray-500 uppercase tracking-widest whitespace-nowrap">
-                  Filter by brief:
-                </span>
-                <div className="relative">
-                  <select
-                    value={selectedBriefId}
-                    onChange={(e) => setSelectedBriefId(e.target.value)}
-                    className="appearance-none bg-navy border border-teal/30 rounded-xl px-4 py-2 pr-10 text-sm font-bold text-teal focus:outline-none focus:border-teal transition-all cursor-pointer"
-                  >
-                    <option value="ALL">
-                      All Briefs ({activeBriefs.length})
-                    </option>
-                    {activeBriefs.map((b) => (
-                      <option key={b.zohoBriefId} value={b.zohoBriefId}>
-                        {b.zohoBriefId}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown
-                    size={14}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-teal pointer-events-none"
-                  />
-                </div>
-              </div>
-            )}
+
           </div>
 
           {/* Controls: Search + Status Tabs */}

@@ -1,10 +1,25 @@
+import imgHome from '../assets/home.jpg';
+import imgQld from '../assets/house_qld.jpg';
+import imgSa from '../assets/house_sa.jpg';
+import imgWa from '../assets/house_wa.jpg';
+import contractPropertyDoc from '../assets/contract-property.pdf';
+import propDocImage from '../assets/prop-doc.jpg';
+
 export const DEMO_USER = {
   id: "demo-user-1",
+  clientId: "demo-contact-1",
   loginEmail: "demo@propertypulse.com.au",
   role: "CLIENT",
   zohoContactId: "demo-contact-1",
   greetingName: "Alex",
   zohoBriefId: "demo-brief-1"
+}
+
+export const DEMO_ADMIN_USER = {
+  id: "demo-admin-1",
+  email: "admin@propertypulse.com.au",
+  fullName: "Demo Admin",
+  role: "ADMIN"
 }
 
 export const DEMO_BRIEF = {
@@ -193,7 +208,9 @@ export const DEMO_ASSIGNMENTS = [
     financeLetterLink: null,
     contractDownloadLink: null,
     docusignLink: null,
-    cashflowDocLink: null
+    cashflowDocLink: null,
+    agentNotes: "These are the default Buyer Match notes for this property. This property aligns well with your investment goals, showing strong yield potential and solid fundamentals in a growing suburb.",
+    clientNotes: "These are my personal notes. I really like the layout of this property and the proximity to local amenities."
   },
   {
     id: "da2",
@@ -211,7 +228,9 @@ export const DEMO_ASSIGNMENTS = [
     financeLetterLink: null,
     contractDownloadLink: null,
     docusignLink: null,
-    cashflowDocLink: null
+    cashflowDocLink: null,
+    agentNotes: "These are the default Buyer Match notes for this property. This property aligns well with your investment goals, showing strong yield potential and solid fundamentals in a growing suburb.",
+    clientNotes: "These are my personal notes. I really like the layout of this property and the proximity to local amenities."
   },
   {
     id: "da3",
@@ -228,7 +247,9 @@ export const DEMO_ASSIGNMENTS = [
     financeLetterLink: null,
     contractDownloadLink: null,
     docusignLink: null,
-    cashflowDocLink: null
+    cashflowDocLink: null,
+    agentNotes: "These are the default Buyer Match notes for this property. This property aligns well with your investment goals, showing strong yield potential and solid fundamentals in a growing suburb.",
+    clientNotes: "These are my personal notes. I really like the layout of this property and the proximity to local amenities."
   },
   {
     id: "da4",
@@ -247,7 +268,9 @@ export const DEMO_ASSIGNMENTS = [
     financeLetterLink: null,
     contractDownloadLink: null,
     docusignLink: null,
-    cashflowDocLink: null
+    cashflowDocLink: null,
+    agentNotes: "These are the default Buyer Match notes for this property. This property aligns well with your investment goals, showing strong yield potential and solid fundamentals in a growing suburb.",
+    clientNotes: "These are my personal notes. I really like the layout of this property and the proximity to local amenities."
   },
   {
     id: "da5",
@@ -264,7 +287,9 @@ export const DEMO_ASSIGNMENTS = [
     financeLetterLink: null,
     contractDownloadLink: null,
     docusignLink: null,
-    cashflowDocLink: null
+    cashflowDocLink: null,
+    agentNotes: "These are the default Buyer Match notes for this property. This property aligns well with your investment goals, showing strong yield potential and solid fundamentals in a growing suburb.",
+    clientNotes: "These are my personal notes. I really like the layout of this property and the proximity to local amenities."
   }
 ]
 
@@ -298,54 +323,70 @@ export const DEMO_NOTIFICATIONS = [
   }
 ]
 
+const demoImages = [
+  { id: "img-1", url: imgHome, caption: "Front Elevation" },
+  { id: "img-2", url: imgQld, caption: "Living Area" },
+  { id: "img-3", url: imgSa, caption: "Kitchen" },
+  { id: "img-4", url: imgWa, caption: "Backyard" }
+];
+
+const demoExtVideos = [
+  propertyVideos.video1,
+  propertyVideos.video2,
+  propertyVideos.video3
+];
+
+const demoDocs = [
+  {
+    id: "doc-1",
+    documentType: "DOCUMENT",
+    fileName: "contract-property.pdf",
+    caption: "Property Contract",
+    fileSizeBytes: 1048576,
+    url: contractPropertyDoc,
+    fileExtension: "pdf"
+  },
+  {
+    id: "doc-2",
+    documentType: "DOCUMENT",
+    fileName: "prop-doc.jpg",
+    caption: "Property Document Image",
+    fileSizeBytes: 204800,
+    url: propDocImage,
+    fileExtension: "jpg"
+  }
+];
+
 export const DEMO_DOCUMENTS = {
   "demo-prop-1": {
-    images: [
-      {
-        id: "ddi1",
-        documentType: "Due Diligence Image",
-        caption: "Front exterior",
-        fileExtension: "png",
-        fileSize: "2.1 MB",
-        downloadLink: "https://placehold.co/800x500/1B2A4A/2ABFBF?text=14+Riverside+Drive"
-      },
-      {
-        id: "ddi2",
-        documentType: "Due Diligence Image",
-        caption: "Living area",
-        fileExtension: "png",
-        fileSize: "1.8 MB",
-        downloadLink: "https://placehold.co/800x500/1B2A4A/2ABFBF?text=Living+Area"
-      }
-    ],
-    docs: [
-      {
-        id: "ddd1",
-        documentType: "Suburb / Region Report",
-        caption: "Bundaberg Suburb Report",
-        fileExtension: "pdf",
-        fileSize: "4.2 MB",
-        downloadLink: null
-      }
-    ],
-    videos: []
+    images: demoImages,
+    videos: [],
+    docs: demoDocs,
+    externalVideos: demoExtVideos
   },
   "demo-prop-2": {
-    images: [
-      {
-        id: "ddi3",
-        documentType: "Due Diligence Image",
-        caption: "Front of property",
-        fileExtension: "png",
-        fileSize: "2.4 MB",
-        downloadLink: "https://placehold.co/800x500/1B2A4A/2ABFBF?text=7+Parkview+Court"
-      }
-    ],
-    docs: [],
-    videos: []
+    images: demoImages,
+    videos: [],
+    docs: demoDocs,
+    externalVideos: demoExtVideos
   },
-  "demo-prop-3": { images: [], docs: [], videos: [] },
-  "demo-prop-4": { images: [], docs: [], videos: [] },
-  "demo-prop-5": { images: [], docs: [], videos: [] }
-}
+  "demo-prop-3": {
+    images: demoImages,
+    videos: [],
+    docs: demoDocs,
+    externalVideos: demoExtVideos
+  },
+  "demo-prop-4": {
+    images: demoImages,
+    videos: [],
+    docs: demoDocs,
+    externalVideos: demoExtVideos
+  },
+  "demo-prop-5": {
+    images: demoImages,
+    videos: [],
+    docs: demoDocs,
+    externalVideos: demoExtVideos
+  }
+};
 

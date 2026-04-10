@@ -1,15 +1,29 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { login } from "../api/client";
-import { Mail, Lock, Loader2, Eye, EyeOff, User } from "lucide-react";
+import { login, adminLogin } from "../api/client";
+import { Mail, Lock, Loader2, Eye, EyeOff, User, ShieldCheck } from "lucide-react";
 import { isDemoMode, BRAND } from "../config/brand";
 
-const DEMO_CREDENTIAL = {
-  label: "Demo Client Login",
-  role: "Client",
-  email: "demo@propertypulse.com.au",
-  password: "demo123",
-};
+const DEMO_CREDENTIALS = [
+  {
+    label: "Demo Client Login",
+    role: "Client",
+    email: "demo@propertypulse.com.au",
+    password: "demo123",
+    icon: User,
+    action: "client",
+    destination: "/dashboard",
+  },
+  {
+    label: "Demo Admin Login",
+    role: "Admin",
+    email: "admin@propertypulse.com.au",
+    password: "admin123",
+    icon: ShieldCheck,
+    action: "admin",
+    destination: "/admin/clients",
+  },
+];
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -17,6 +31,7 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(null); // tracks which demo button is loading
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -34,16 +49,27 @@ const Login = () => {
     }
   };
 
-  const fillCredentials = (cred) => {
-    setEmail(cred.email);
-    setPassword(cred.password);
+  const handleDemoLogin = async (cred) => {
     setError("");
+    setDemoLoading(cred.action);
+    try {
+      if (cred.action === "admin") {
+        await adminLogin(cred.email, cred.password);
+      } else {
+        await login(cred.email, cred.password);
+      }
+      navigate(cred.destination);
+    } catch (err) {
+      setError(err.message || "Demo login failed");
+    } finally {
+      setDemoLoading(null);
+    }
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-navy text-white p-6">
       <div className="w-full max-w-md space-y-4">
-        <div className="p-8 bg-[#24355A] rounded-xl border border-teal shadow-2xl backdrop-blur-sm" style={{ borderColor: BRAND.primary + '4D' }}>
+        <div className="p-8 bg-[#24355A] rounded-xl border shadow-2xl backdrop-blur-sm" style={{ borderColor: BRAND.primary + '4D' }}>
           <div className="mb-8 text-center">
             <h1 className="text-4xl font-bold mb-1 tracking-tight" style={{ color: BRAND.primary }}>
               {BRAND.name}
@@ -65,7 +91,7 @@ const Login = () => {
                 Email Address
               </label>
               <div className="relative group">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-500 transition-colors" style={{}}>
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-500 transition-colors">
                   <Mail size={18} />
                 </div>
                 <input
@@ -74,7 +100,6 @@ const Login = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full bg-navy border border-white/10 rounded-lg py-3 pl-11 pr-4 focus:outline-none focus:ring-2 focus:border-teal transition-all placeholder:text-gray-600"
-                  style={{ '--tw-ring-color': BRAND.primary + '80' }}
                   placeholder="name@example.com"
                 />
               </div>
@@ -108,7 +133,7 @@ const Login = () => {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || demoLoading !== null}
               className="w-full font-bold py-3 rounded-lg transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
               style={{
                 background: BRAND.primary,
@@ -128,43 +153,45 @@ const Login = () => {
         </div>
 
         {isDemoMode && (
-          <button
-            type="button"
-            onClick={() => fillCredentials(DEMO_CREDENTIAL)}
-            className="w-full text-left rounded-xl border-2 transition-all group"
-            style={{ borderColor: BRAND.primary + '80', background: BRAND.primary + '0D' }}
-            onMouseEnter={e => e.currentTarget.style.borderColor = BRAND.primary}
-            onMouseLeave={e => e.currentTarget.style.borderColor = BRAND.primary + '80'}
-          >
-            <div className="px-5 py-4">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <Lock size={14} style={{ color: BRAND.primary }} />
-                  <span className="text-xs font-bold uppercase tracking-widest" style={{ color: BRAND.primary }}>
-                    Demo Access
-                  </span>
-                </div>
-                <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full" style={{ color: BRAND.dark, background: BRAND.primary }}>
-                  Click to auto-fill
-                </span>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <div className="flex items-center justify-center w-9 h-9 rounded-lg shrink-0" style={{ background: BRAND.primary + '1A' }}>
-                  <User size={18} style={{ color: BRAND.primary }} />
-                </div>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-bold text-white">{DEMO_CREDENTIAL.label}</p>
-                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded" style={{ color: BRAND.primary, background: BRAND.primary + '1A' }}>
-                      {DEMO_CREDENTIAL.role}
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-gray-400 mt-0.5 font-mono truncate">{DEMO_CREDENTIAL.email}</p>
-                </div>
-              </div>
+          <div className="space-y-3">
+            <p className="text-center text-xs font-bold uppercase tracking-widest" style={{ color: BRAND.primary + 'CC' }}>
+              Demo Access
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              {DEMO_CREDENTIALS.map((cred) => {
+                const Icon = cred.icon;
+                const isThisLoading = demoLoading === cred.action;
+                const isAdminCred = cred.action === "admin";
+                const borderColor = isAdminCred ? '#D4A843' : BRAND.primary;
+                return (
+                  <button
+                    key={cred.action}
+                    type="button"
+                    disabled={demoLoading !== null || loading}
+                    onClick={() => handleDemoLogin(cred)}
+                    className="text-left rounded-xl border-2 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                    style={{ borderColor: borderColor + '60', background: borderColor + '0D' }}
+                    onMouseEnter={e => { if (!demoLoading && !loading) e.currentTarget.style.borderColor = borderColor; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = borderColor + '60'; }}
+                  >
+                    <div className="px-4 py-4">
+                      <div className="flex items-center justify-center w-9 h-9 rounded-lg mb-3" style={{ background: borderColor + '1A' }}>
+                        {isThisLoading
+                          ? <Loader2 size={18} className="animate-spin" style={{ color: borderColor }} />
+                          : <Icon size={18} style={{ color: borderColor }} />
+                        }
+                      </div>
+                      <p className="text-sm font-bold text-white leading-snug">{cred.label}</p>
+                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded mt-1 inline-block" style={{ color: borderColor, background: borderColor + '1A' }}>
+                        {cred.role}
+                      </span>
+                      <p className="text-[10px] text-gray-500 mt-1.5 font-mono truncate">{cred.email}</p>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
-          </button>
+          </div>
         )}
       </div>
     </div>

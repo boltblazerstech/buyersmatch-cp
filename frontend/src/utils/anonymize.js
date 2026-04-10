@@ -40,7 +40,7 @@ export function anonymizeName(realName) {
   if (!isDemoMode || !realName) return realName
   const h = hashStr(realName)
   const first = FIRST_NAMES[h % FIRST_NAMES.length]
-  const last = LAST_NAMES[(h >> 4) % LAST_NAMES.length]
+  const last = LAST_NAMES[(h >>> 4) % LAST_NAMES.length]
   return `${first} ${last}`
 }
 
@@ -48,7 +48,7 @@ export function anonymizeEmail(realEmail) {
   if (!isDemoMode || !realEmail) return realEmail
   const h = hashStr(realEmail)
   const first = FIRST_NAMES[h % FIRST_NAMES.length].toLowerCase()
-  const last = LAST_NAMES[(h >> 4) % LAST_NAMES.length].toLowerCase()
+  const last = LAST_NAMES[(h >>> 4) % LAST_NAMES.length].toLowerCase()
   return `${first}.${last}@demo.com.au`
 }
 

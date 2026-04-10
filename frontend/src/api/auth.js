@@ -1,10 +1,13 @@
 import { api, adminApi, USE_MOCK, delay, STORAGE_KEYS } from './http';
 import { mockUsers } from '../mock/data';
 import { isDemoMode } from '../config/brand';
-import { DEMO_USER } from '../mock/demoData';
+import { DEMO_USER, DEMO_ADMIN_USER } from '../mock/demoData';
 
 const DEMO_EMAIL = 'demo@propertypulse.com.au';
 const DEMO_PASSWORD = 'demo123';
+
+const DEMO_ADMIN_EMAIL = 'admin@propertypulse.com.au';
+const DEMO_ADMIN_PASSWORD = 'admin123';
 
 // ─── Client Login ─────────────────────────────────────────────────
 export const login = async (email, password) => {
@@ -36,6 +39,11 @@ export const login = async (email, password) => {
 // ─── Admin-specific Login ─────────────────────────────────────────
 // Stores the sessionToken in localStorage so adminApi interceptor picks it up.
 export const adminLogin = async (email, password) => {
+  if (isDemoMode && email === DEMO_ADMIN_EMAIL && password === DEMO_ADMIN_PASSWORD) {
+    localStorage.setItem(STORAGE_KEYS.ADMIN_TOKEN, 'demo-admin-token');
+    localStorage.setItem(STORAGE_KEYS.ADMIN_USER, JSON.stringify(DEMO_ADMIN_USER));
+    return DEMO_ADMIN_USER;
+  }
   if (USE_MOCK) {
     await delay();
     const user = mockUsers.find(u => u.email === email && u.password === password && u.role === 'ADMIN');

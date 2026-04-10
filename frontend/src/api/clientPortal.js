@@ -99,7 +99,8 @@ export const getClientProperties = async (clientId) => {
           propertyId: prop?.zohoPropertyId || a.propertyId,
           portalStatus: a.portalStatus,
           zohoBriefId: brief.zohoBriefId,
-          clientNotes: null,
+          clientNotes: a.clientNotes || null,
+          agentNotes: a.agentNotes || null,
         };
       });
 

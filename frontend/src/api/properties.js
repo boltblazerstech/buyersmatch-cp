@@ -13,13 +13,20 @@ const normDoc = (d) => ({ ...d, url: d.url || d.downloadLink || null });
 const normaliseDemoDocs = (raw) => {
   if (!raw) return EMPTY_DOCS;
   const imgs = (raw.propertyImages || raw.images || []).map(normDoc);
+  const allDocs = (raw.docs || []).map(normDoc);
+  const PDF_EXTS = ['pdf'];
+  const IMG_EXTS = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+  const pdfs   = allDocs.filter(d => PDF_EXTS.includes(d.fileExtension?.toLowerCase()));
+  const others = allDocs.filter(d => !PDF_EXTS.includes(d.fileExtension?.toLowerCase()) && !IMG_EXTS.includes(d.fileExtension?.toLowerCase()));
+  // Image-type docs (jpg/png etc.) go into others so they still appear in the doc list
+  const imgDocs = allDocs.filter(d => IMG_EXTS.includes(d.fileExtension?.toLowerCase()));
   return {
     propertyImages: imgs,
     images: imgs,
-    docs:          (raw.docs    || []).map(normDoc),
+    docs:          allDocs,
     videos:        raw.videos   || [],
-    pdfs:          raw.pdfs     || [],
-    others:        raw.others   || [],
+    pdfs,
+    others:        [...others, ...imgDocs],
     externalVideos: raw.externalVideos || [],
   };
 };
