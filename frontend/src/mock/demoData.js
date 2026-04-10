@@ -171,6 +171,12 @@ export const DEMO_PROPERTIES = [
   }
 ]
 
+const propertyVideos = {
+    video1:"https://www.youtube.com/shorts/ye7eRew9pgg",
+    video2:"https://www.youtube.com/shorts/JbyVVFITn8k",
+    video3:"https://www.youtube.com/shorts/6cXawULEjlE"
+}
+
 export const DEMO_ASSIGNMENTS = [
   {
     id: "da1",
