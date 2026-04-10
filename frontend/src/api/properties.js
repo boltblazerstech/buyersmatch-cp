@@ -6,6 +6,24 @@ import { DEMO_PROPERTIES, DEMO_DOCUMENTS } from '../mock/demoData';
 
 const EMPTY_DOCS = { propertyImages: [], images: [], docs: [], videos: [], pdfs: [], others: [], externalVideos: [] };
 
+// Normalise a demo document entry: guarantee `url` exists regardless of linter renaming downloadLink→url
+const normDoc = (d) => ({ ...d, url: d.url || d.downloadLink || null });
+
+// Normalise a full DEMO_DOCUMENTS entry: guarantee `propertyImages` key and `url` on every item
+const normaliseDemoDocs = (raw) => {
+  if (!raw) return EMPTY_DOCS;
+  const imgs = (raw.propertyImages || raw.images || []).map(normDoc);
+  return {
+    propertyImages: imgs,
+    images: imgs,
+    docs:          (raw.docs    || []).map(normDoc),
+    videos:        raw.videos   || [],
+    pdfs:          raw.pdfs     || [],
+    others:        raw.others   || [],
+    externalVideos: raw.externalVideos || [],
+  };
+};
+
 const BLOCKED_DOC_TYPES = [
   'Contract', 'Finance Letter', 'BNP Report', 'Insurance',
 ];
@@ -53,7 +71,7 @@ export const getPropertyDetail = async (propertyId) => {
  */
 export const getPropertyDocuments = async (propertyId) => {
   if (isDemoMode && propertyId?.startsWith('demo-')) {
-    return DEMO_DOCUMENTS[propertyId] || EMPTY_DOCS;
+    return normaliseDemoDocs(DEMO_DOCUMENTS[propertyId]);
   }
   if (USE_MOCK) {
     await delay();

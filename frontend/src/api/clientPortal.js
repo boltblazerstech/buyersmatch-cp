@@ -17,11 +17,19 @@ import {
 
 const DEMO_CLIENT_ID = 'demo-contact-1';
 
+// Normalise DEMO_BRIEF to guarantee fields the app depends on, regardless of linter trimming
+const normalisedDemoBrief = () => ({
+  ...DEMO_BRIEF,
+  zohoBriefId: DEMO_BRIEF.zohoBriefId || DEMO_BRIEF.id,
+  buyerMatchNotes: DEMO_BRIEF.buyerMatchNotes ||
+    'Alex has strong pre-approval in place and is motivated to move quickly. Priority suburbs are Bundaberg and Rockingham. Looking for set-and-forget investment with strong rental yield. Avoid properties requiring significant renovation.',
+});
+
 // ─── Buyer Brief ──────────────────────────────────────────────────
 
 /** GET /api/client/:clientId/brief */
 export const getBuyerBrief = async (clientId) => {
-  if (isDemoMode && clientId === DEMO_CLIENT_ID) return DEMO_BRIEF;
+  if (isDemoMode && clientId === DEMO_CLIENT_ID) return normalisedDemoBrief();
   if (USE_MOCK) {
     await delay();
     return anonymizeBrief(mockBuyerBriefs.find(bb => bb.clientId === clientId));
@@ -35,11 +43,12 @@ export const getBuyerBrief = async (clientId) => {
 /** GET /api/client/:clientId/profile */
 export const getClientProfile = async (clientId) => {
   if (isDemoMode && clientId === DEMO_CLIENT_ID) {
+    const brief = normalisedDemoBrief();
     return {
       ...DEMO_USER,
-      fullName: DEMO_BRIEF.fullName,
-      greetingName: DEMO_BRIEF.greetingName,
-      email: DEMO_BRIEF.email,
+      fullName: brief.fullName || DEMO_USER.fullName || 'Alex Johnson',
+      greetingName: brief.greetingName || DEMO_USER.greetingName,
+      email: brief.email,
     };
   }
   if (USE_MOCK) {
@@ -65,11 +74,11 @@ export const getClientProperties = async (clientId) => {
         property: prop,
         propertyId: prop?.zohoPropertyId,
         portalStatus: a.portalStatus,
-        zohoBriefId: DEMO_BRIEF.zohoBriefId,
+        zohoBriefId: normalisedDemoBrief().zohoBriefId,
         clientNotes: null,
       };
     });
-    return { assignments, briefs: [DEMO_BRIEF] };
+    return { assignments, briefs: [normalisedDemoBrief()] };
   }
   if (USE_MOCK) {
     await delay();

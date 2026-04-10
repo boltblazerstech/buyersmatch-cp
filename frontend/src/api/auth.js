@@ -9,8 +9,14 @@ const DEMO_PASSWORD = 'demo123';
 // ─── Client Login ─────────────────────────────────────────────────
 export const login = async (email, password) => {
   if (isDemoMode && email === DEMO_EMAIL && password === DEMO_PASSWORD) {
-    localStorage.setItem(STORAGE_KEYS.CLIENT_USER, JSON.stringify(DEMO_USER));
-    return DEMO_USER;
+    // Normalise: ensure clientId and fullName exist regardless of what the linter strips
+    const demoUser = {
+      ...DEMO_USER,
+      clientId: DEMO_USER.clientId || DEMO_USER.zohoContactId,
+      fullName: DEMO_USER.fullName || 'Alex Johnson',
+    };
+    localStorage.setItem(STORAGE_KEYS.CLIENT_USER, JSON.stringify(demoUser));
+    return demoUser;
   }
   if (USE_MOCK) {
     await delay();
