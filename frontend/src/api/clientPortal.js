@@ -87,7 +87,7 @@ export const getClientProfile = async (clientId) => {
 
 export const getClientProperties = async (clientId) => {
   try {
-    if (isDemoMode && clientId === DEMO_CLIENT_ID) {
+    if (isDemoMode) {
       const brief = normalisedDemoBrief();
 
       const assignments = DEMO_ASSIGNMENTS.map(a => {
