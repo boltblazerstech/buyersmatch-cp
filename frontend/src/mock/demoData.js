@@ -357,33 +357,41 @@ const demoDocs = [
   }
 ];
 
+const getImages = (shift) => {
+  const arr = [...demoImages];
+  for (let i = 0; i < shift; i++) {
+    arr.push(arr.shift());
+  }
+  return arr;
+}
+
 export const DEMO_DOCUMENTS = {
   "demo-prop-1": {
-    images: demoImages,
+    images: getImages(0),
     videos: [],
     docs: demoDocs,
     externalVideos: demoExtVideos
   },
   "demo-prop-2": {
-    images: demoImages,
+    images: getImages(1),
     videos: [],
     docs: demoDocs,
     externalVideos: demoExtVideos
   },
   "demo-prop-3": {
-    images: demoImages,
+    images: getImages(2),
     videos: [],
     docs: demoDocs,
     externalVideos: demoExtVideos
   },
   "demo-prop-4": {
-    images: demoImages,
+    images: getImages(3),
     videos: [],
     docs: demoDocs,
     externalVideos: demoExtVideos
   },
   "demo-prop-5": {
-    images: demoImages,
+    images: getImages(1),
     videos: [],
     docs: demoDocs,
     externalVideos: demoExtVideos
