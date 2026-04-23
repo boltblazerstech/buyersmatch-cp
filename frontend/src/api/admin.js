@@ -80,13 +80,13 @@ export const updateAgentNotes = async (clientId, notes) => {
   return data.data;
 };
 
-/** PATCH /api/admin/assignment/:assignmentId/agent-notes */
+/** POST /api/admin/assignment/:assignmentId/agent-notes */
 export const updateAssignmentAgentNotes = async (assignmentId, agentNotes) => {
   if (USE_MOCK) {
     await delay();
     return { id: assignmentId, agentNotes };
   }
-  const { data } = await adminApi.patch(`/api/admin/assignment/${assignmentId}/agent-notes`, { agentNotes });
+  const { data } = await adminApi.post(`/api/admin/assignment/${assignmentId}/agent-notes`, { agentNotes });
   return data.data;
 };
 
