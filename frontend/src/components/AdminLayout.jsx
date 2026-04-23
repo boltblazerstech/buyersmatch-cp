@@ -1,6 +1,6 @@
 import React from "react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
-import { LogOut, Users, FileText, MessageSquare } from "lucide-react";
+import { LogOut, Users, FileText, MessageSquare, RefreshCw } from "lucide-react";
 import { adminLogout, getStoredUser } from "../api/client";
 import logo from "../assets/bm-logo-white-text-1B2A4A.jpg";
 
@@ -45,6 +45,29 @@ const AdminLayout = ({ children, title }) => {
               Administrator
             </p>
           </div>
+          
+          <button
+            onClick={async (e) => {
+              const btn = e.currentTarget;
+              const originalText = btn.innerHTML;
+              btn.innerHTML = '<span class="animate-spin inline-block mr-2">↻</span>Syncing...';
+              btn.disabled = true;
+              try {
+                const { triggerSync } = await import('../api/admin');
+                await triggerSync('delta');
+                btn.innerHTML = '<span class="text-green-400">✓</span> Synced';
+                setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 2000);
+              } catch (err) {
+                btn.innerHTML = '<span class="text-red-400">✗</span> Failed';
+                setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 2000);
+              }
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-teal/10 border border-teal/30 text-teal rounded-xl hover:bg-teal hover:text-navy transition-all font-bold uppercase tracking-widest text-[10px]"
+          >
+            <RefreshCw size={16} />
+            <span className="hidden sm:inline">Sync Zoho</span>
+          </button>
+
           <button
             onClick={handleLogout}
             className="flex items-center gap-2 px-4 py-2 bg-red-500/10 border border-red-500/30 text-red-400 rounded-xl hover:bg-red-500 hover:text-white transition-all font-bold uppercase tracking-widest text-[10px]"
