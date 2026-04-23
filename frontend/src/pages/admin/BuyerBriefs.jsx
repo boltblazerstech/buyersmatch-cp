@@ -3,7 +3,8 @@ import AdminLayout from '../../components/AdminLayout';
 import {
   Users, Search, CheckCircle2, Clock, Loader2,
   UserPlus, X, Eye, EyeOff, Mail, Lock, RefreshCw,
-  AlertCircle, DollarSign, MapPin, Home, Trash2
+  AlertCircle, DollarSign, MapPin, Home, Trash2,
+  ArrowUp, ArrowDown, ArrowUpDown,
 } from 'lucide-react';
 import { getAllBuyerBriefs, createClient } from '../../api/client';
 
@@ -170,6 +171,7 @@ const Buyers = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('ALL');
   const [selectedBuyer, setSelectedBuyer] = useState(null);
+  const [briefSort, setBriefSort] = useState('desc'); // 'desc' | 'asc' | null
 
   useEffect(() => {
     const fetchData = async () => {
@@ -195,7 +197,7 @@ const Buyers = () => {
 
 
   const filtered = useMemo(() => {
-    return buyers.filter(b => {
+    const list = buyers.filter(b => {
       const q = searchQuery.toLowerCase();
       const matchesSearch =
         (b.fullName || '').toLowerCase().includes(q) ||
@@ -208,7 +210,17 @@ const Buyers = () => {
         (activeFilter === 'NOT_ONBOARDED' && !isOnboarded);
       return matchesSearch && matchesFilter;
     });
-  }, [buyers, searchQuery, activeFilter]);
+
+    if (briefSort) {
+      list.sort((a, b) => {
+        const ac = a.briefCount || 0;
+        const bc = b.briefCount || 0;
+        return briefSort === 'desc' ? bc - ac : ac - bc;
+      });
+    }
+
+    return list;
+  }, [buyers, searchQuery, activeFilter, briefSort]);
 
   const counts = useMemo(() => ({
     total: buyers.length,
@@ -285,7 +297,21 @@ const Buyers = () => {
               <thead>
                 <tr className="border-b border-white/5 bg-white/5">
                   <th className="p-4 text-xs font-bold text-gray-400 uppercase tracking-widest pl-8">Client Name</th>
-                  <th className="p-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Briefs</th>
+                  <th
+                    className="p-4 text-xs font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-white select-none transition-colors"
+                    onClick={() => setBriefSort(s => s === 'desc' ? 'asc' : 'desc')}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      Briefs
+                      {briefSort === 'desc' ? (
+                        <ArrowDown size={13} className="text-teal" />
+                      ) : briefSort === 'asc' ? (
+                        <ArrowUp size={13} className="text-teal" />
+                      ) : (
+                        <ArrowUpDown size={13} className="text-gray-600" />
+                      )}
+                    </div>
+                  </th>
                   <th className="p-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Zoho Contact ID</th>
                   <th className="p-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Portal Status</th>
                   <th className="p-4 text-xs font-bold text-gray-400 uppercase tracking-widest text-right pr-8">Action</th>
