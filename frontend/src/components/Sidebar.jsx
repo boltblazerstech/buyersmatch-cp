@@ -37,7 +37,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           {/* Header */}
           <div className="flex items-center justify-between mb-10">
             <h1 className="text-2xl font-bold text-teal tracking-tight">
-              Buyers Match
+              BuyersMatch
             </h1>
             <button onClick={toggleSidebar} className="lg:hidden text-white hover:text-teal">
               <X size={24} />

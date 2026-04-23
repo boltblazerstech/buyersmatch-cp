@@ -172,7 +172,7 @@ const BuyerBriefView = ({ brief }) => {
             )}
           </div>
         </div>
-        <BriefField label="Financer" value={fmt(brief.financerName)} />
+        <BriefField label="Mortgage Broker" value={fmt(brief.financerName)} />
       </BriefSection>
 
       {Array.isArray(brief.assignedAgents) &&
@@ -292,13 +292,19 @@ const ComparisonModal = ({ properties, onClose }) => {
 };
 
 // ─── Purchased detection ───────────────────────────────────────────────────────
-const PURCHASED_KEYWORDS = ["unconditional", "psi", "settl", "tenant"];
+// Purchased = zohoStatus is "Contract Signed" or any later stage:
+// Contract Signed → BNP Done → Contract Unconditional → Tenanted → Done
+const PURCHASED_STATUSES = new Set([
+  "contract signed",
+  "bnp done",
+  "contract unconditional",
+  "tenanted",
+  "done",
+]);
 const isPurchasedItem = (item) => {
   if (item.portalStatus === "PURCHASED") return true;
-  const zs = (item.assignment?.zohoStatus || "").toLowerCase();
-  if (PURCHASED_KEYWORDS.some((kw) => zs.includes(kw))) return true;
-  if (/\bdone\b/.test(zs) && !/bnp|finance/.test(zs)) return true;
-  return false;
+  const zs = (item.assignment?.zohoStatus || "").toLowerCase().trim();
+  return PURCHASED_STATUSES.has(zs);
 };
 
 // ─── Main component ────────────────────────────────────────────────────────────

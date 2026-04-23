@@ -25,7 +25,7 @@ const AdminLayout = ({ children, title }) => {
           >
             <img 
               src={logo} 
-              alt="Buyers Match" 
+              alt="BuyersMatch" 
               className="h-10 w-auto group-hover:scale-105 transition-transform" 
             />
             <div className="hidden sm:block border-l border-white/10 pl-3">

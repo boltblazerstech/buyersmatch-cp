@@ -592,11 +592,8 @@ const PropertyDetail = () => {
                     color: "text-teal",
                   },
                   {
-                    label: "Min Rent / Month",
-                    value:
-                      property.minRentPerMonth != null
-                        ? `$${Number(property.minRentPerMonth).toLocaleString()}`
-                        : null,
+                    label: "Weekly Rent",
+                    value: weeklyRent != null ? `$${Number(weeklyRent).toLocaleString()}` : null,
                     icon: PiggyBank,
                     color: "text-teal",
                   },
@@ -886,6 +883,32 @@ const PropertyDetail = () => {
                 </p>
               </div>
             </div>
+
+            {/* Offer Details */}
+            {(assignment?.offerAmount || assignment?.offerDate) && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 border-t border-white/5 pt-8">
+                {assignment?.offerAmount && (
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase tracking-widest mb-2">
+                      Offer Price
+                    </p>
+                    <p className="text-xl font-bold text-gold">
+                      ${Number(assignment.offerAmount).toLocaleString()}
+                    </p>
+                  </div>
+                )}
+                {assignment?.offerDate && (
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase tracking-widest mb-2">
+                      Offer Date
+                    </p>
+                    <p className="text-xl font-bold text-white">
+                      {assignment.offerDate}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* 4. Property Overview */}
@@ -1253,7 +1276,7 @@ const PropertyDetail = () => {
             <div className="flex items-center gap-3 mb-6">
               <MessageSquare className="text-teal" size={24} />
               <h3 className="text-xl font-bold text-white">
-                Buyers Match Notes
+                BuyersMatch Notes
               </h3>
             </div>
             {assignment?.agentNotes ? (
@@ -1265,7 +1288,7 @@ const PropertyDetail = () => {
             ) : (
               <div className="p-10 border-2 border-dashed border-white/5 rounded-2xl flex flex-col items-center justify-center text-center">
                 <p className="text-gray-500 italic">
-                  Notes from Buyers Match will appear here
+                  Notes from BuyersMatch will appear here
                 </p>
               </div>
             )}

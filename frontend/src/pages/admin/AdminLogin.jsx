@@ -34,7 +34,7 @@ const AdminLogin = () => {
             <ShieldCheck size={32} className="text-gold" />
           </div>
           <h1 className="text-3xl font-bold text-white mb-1 tracking-tight">Admin Portal</h1>
-          <p className="text-gold font-medium uppercase tracking-widest text-xs">Buyers Match — Staff Access</p>
+          <p className="text-gold font-medium uppercase tracking-widest text-xs">BuyersMatch — Staff Access</p>
         </div>
 
         {error && (
@@ -98,7 +98,7 @@ const AdminLogin = () => {
           <Link to="/login" className="text-xs text-gray-500 hover:text-teal transition-colors">
             ← Back to Client Login
           </Link>
-          <p className="text-xs text-gray-600">Secure Admin Access • Buyers Match</p>
+          <p className="text-xs text-gray-600">Secure Admin Access • BuyersMatch</p>
         </div>
       </div>
     </div>

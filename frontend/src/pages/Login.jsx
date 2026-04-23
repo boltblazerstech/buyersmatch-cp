@@ -40,7 +40,7 @@ const Login = () => {
       <div className="p-8 bg-[#24355A] rounded-xl border border-teal shadow-2xl w-full max-w-md backdrop-blur-sm">
         <div className="mb-8 text-center">
           <h1 className="text-4xl font-bold text-teal mb-1 tracking-tight">
-            Buyers Match
+            BuyersMatch
           </h1>
           <p className="text-gold font-medium uppercase tracking-widest text-sm">
             Client Portal Login
@@ -116,7 +116,7 @@ const Login = () => {
 
         <div className="mt-8 pt-6 border-t border-white/5 text-center space-y-2">
           <p className="text-xs text-gray-200">
-            Secure Access • Powered by Buyers Match
+            Secure Access • Powered by BuyersMatch
           </p>
         </div>
       </div>
