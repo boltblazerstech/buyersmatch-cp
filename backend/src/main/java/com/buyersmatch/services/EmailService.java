@@ -97,7 +97,7 @@ public class EmailService {
   private String buildClientActionHtml(String clientName, String propertyAddress, String action, String remark) {
     boolean isAccept = "ACCEPT".equalsIgnoreCase(action);
     boolean isWalkthrough = "REQUEST_WALKTHROUGH".equalsIgnoreCase(action);
-    String actionLabel = isAccept ? "Expressed Interest" : (isWalkthrough ? "Requested Walkthrough" : "Declined");
+    String actionLabel = isAccept ? "Accepted" : (isWalkthrough ? "Requested Walkthrough" : "Declined");
     String accentColor = isAccept ? "#14b8a6" : (isWalkthrough ? "#3b82f6" : "#ef4444");
     String actionEmoji = isAccept ? "✅" : (isWalkthrough ? "🚶" : "❌");
     String remarkSection = (remark != null && !remark.isBlank())

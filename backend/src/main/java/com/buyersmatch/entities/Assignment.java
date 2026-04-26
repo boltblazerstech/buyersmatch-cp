@@ -69,6 +69,9 @@ public class Assignment {
     private Double rentalYield;
     private String realEstateAgentName;
 
+    @Column(name = "walkthrough_requested", nullable = false)
+    private boolean walkthroughRequested = false;
+
     @Column(name = "client_notes", columnDefinition = "text")
     private String clientNotes;
 

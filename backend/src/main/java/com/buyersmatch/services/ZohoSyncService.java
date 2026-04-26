@@ -519,7 +519,7 @@ public class ZohoSyncService {
 
                     if (!skipR2) {
                         String zohoPropertyId = doc.getZohoPropertyId();
-                        if (allowedPropertyIds.contains(zohoPropertyId)) {
+                        if (!isVideoDoc(doc) && allowedPropertyIds.contains(zohoPropertyId)) {
                             String fileName = doc.getFileName();
                             String fileExtension = doc.getFileExtension();
                             String fileKey = r2StorageService.generateFileKey(zohoDocId, fileName);
@@ -679,6 +679,14 @@ public class ZohoSyncService {
                 java.util.concurrent.CompletableFuture.runAsync(() -> syncClientManagement(false, null));
         java.util.concurrent.CompletableFuture.allOf(briefs, properties, docs, clients).join();
         log.info("Data sync completed");
+
+        // Option B: if data sync found new documents without R2 URLs, upload them immediately in background
+        long pending = propertyDocumentRepository.findAllByR2UrlIsNullAndCrmDownloadUrlIsNotNull().size()
+                + propertyDocumentRepository.findAllByR2UrlIsNullAndCrmDownloadUrlIsNullAndDownloadLinkIsNotNull().size();
+        if (pending > 0) {
+            log.info("Data sync found {} docs pending R2 upload — triggering media sync in background", pending);
+            java.util.concurrent.CompletableFuture.runAsync(this::uploadMissingR2Documents);
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -708,21 +716,39 @@ public class ZohoSyncService {
     // -------------------------------------------------------------------------
 
     /**
-     * Returns the set of zohoPropertyIds assigned to at least one client portal user.
-     * Resolves contact IDs from both ClientPortalUser.zohoContactId and the
-     * linked BuyerBrief.zohoContactId so no portal user is missed.
+     * Returns the set of zohoPropertyIds that are eligible for R2 media upload:
+     * - assigned to at least one ONBOARDED portal user
+     * - assignment is NOT rejected (zohoStatus contains "reject" or portalStatus = "REJECTED")
      */
     private Set<String> getPortalClientPropertyIds() {
-        List<String> contactIds = clientPortalUserRepository.findAllResolvedZohoContactIds();
-        log.info("getPortalClientPropertyIds: {} contact IDs resolved from portal users", contactIds.size());
+        List<String> contactIds = clientPortalUserRepository.findAllResolvedZohoContactIdsByStatus("onboarded");
+        log.info("getPortalClientPropertyIds: {} contact IDs from onboarded portal users", contactIds.size());
         if (contactIds.isEmpty()) return Collections.emptySet();
         Set<String> propertyIds = assignmentRepository.findAllByZohoContactIdIn(contactIds)
                 .stream()
+                .filter(a -> {
+                    String zs = a.getZohoStatus() != null ? a.getZohoStatus().toLowerCase() : "";
+                    String ps = a.getPortalStatus() != null ? a.getPortalStatus() : "";
+                    return !zs.contains("reject") && !"REJECTED".equalsIgnoreCase(ps);
+                })
                 .map(Assignment::getZohoPropertyId)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
-        log.info("getPortalClientPropertyIds: {} allowed property IDs", propertyIds.size());
+        log.info("getPortalClientPropertyIds: {} eligible property IDs (onboarded clients, non-rejected assignments)", propertyIds.size());
         return propertyIds;
+    }
+
+    // -------------------------------------------------------------------------
+    // R2 ELIGIBILITY CHECK
+    // -------------------------------------------------------------------------
+
+    private static final Set<String> VIDEO_EXTENSIONS = Set.of("mp4", "mov", "movie", "webm", "avi", "mkv");
+
+    /** Videos are served via external URLs (YouTube/WorkDrive), never uploaded to R2. */
+    private boolean isVideoDoc(PropertyDocument doc) {
+        if ("VIDEO".equals(doc.getDocumentType())) return true;
+        String ext = doc.getFileExtension();
+        return ext != null && VIDEO_EXTENSIONS.contains(ext.toLowerCase());
     }
 
     // -------------------------------------------------------------------------
@@ -777,6 +803,10 @@ public class ZohoSyncService {
         int uploaded = 0;
         for (PropertyDocument doc : missing) {
             try {
+                if (isVideoDoc(doc)) {
+                    log.debug("Skipping R2 upload for video doc {}", doc.getZohoDocId());
+                    continue;
+                }
                 if (!allowedPropertyIds.contains(doc.getZohoPropertyId())) {
                     log.info("Skipping R2 upload for doc {} property {} - not assigned to any portal user", doc.getZohoDocId(), doc.getZohoPropertyId());
                     continue;
@@ -815,9 +845,19 @@ public class ZohoSyncService {
     // -------------------------------------------------------------------------
 
     @Scheduled(fixedRate = 300000)
-    public void scheduledDeltaSync() {
+    public void scheduledDataSync() {
         log.info("Scheduled data sync started");
         runDataSync();
+    }
+
+    // -------------------------------------------------------------------------
+    // SCHEDULER — media sync every 60 minutes (safety net for missed uploads)
+    // -------------------------------------------------------------------------
+
+    @Scheduled(fixedRate = 3600000)
+    public void scheduledMediaSync() {
+        log.info("Scheduled media sync started");
+        runMediaSync();
     }
 
     // -------------------------------------------------------------------------

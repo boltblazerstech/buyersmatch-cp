@@ -14,6 +14,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
@@ -39,6 +40,9 @@ public class ClientController {
     private final ZohoAuthService zohoAuthService;
     private final R2StorageService r2StorageService;
     private final RestTemplate restTemplate;
+
+    @Value("${zoho.base.url}")
+    private String zohoBaseUrl;
 
     @GetMapping("/api/client/{zohoContactId}/assignments")
     public ResponseEntity<Map<String, Object>> getAssignments(@PathVariable String zohoContactId) {
@@ -310,8 +314,10 @@ public class ClientController {
     }
 
     /**
-     * Sends a notification email to the admin when a client accepts or rejects a property.
-     * Does NOT change the assignment status — status changes come only from Zoho.
+     * Handles client response to a property assignment.
+     * For ACCEPT: Zoho CRM must be updated successfully first, then email is sent.
+     *             Local DB is NOT touched — portalStatus syncs back via regular Zoho sync.
+     * For REQUEST_WALKTHROUGH: email only, no Zoho write.
      */
     @PostMapping("/api/client/assignment/{assignmentId}/notify")
     public ResponseEntity<Map<String, Object>> notifyAssignmentAction(
@@ -333,24 +339,56 @@ public class ClientController {
             if (prop != null && prop.getAddress() != null) propertyAddress = prop.getAddress();
         }
 
-        // Resolve client name from brief
+        // Resolve client name from brief (contact may have multiple briefs — any will do)
         String clientName = "Client";
         if (assignment.getZohoContactId() != null) {
-            BuyerBrief brief = buyerBriefRepository.findByZohoContactId(assignment.getZohoContactId()).orElse(null);
-            if (brief != null) {
-                clientName = brief.getFullName() != null ? brief.getFullName() : brief.getZohoName();
-                if (clientName == null) clientName = brief.getEmail() != null ? brief.getEmail() : "Client";
+            List<BuyerBrief> briefs = buyerBriefRepository.findAllByZohoContactId(assignment.getZohoContactId());
+            if (!briefs.isEmpty()) {
+                BuyerBrief brief = briefs.get(0);
+                String name = brief.getFullName() != null ? brief.getFullName() : brief.getZohoName();
+                clientName = name != null ? name : (brief.getEmail() != null ? brief.getEmail() : "Client");
             }
         }
 
+        // For ACCEPT: push to Zoho CRM first — email only fires if this succeeds
+        if ("ACCEPT".equalsIgnoreCase(action)) {
+            if (assignment.getZohoAssignmentId() == null) {
+                log.error("Cannot accept assignment {} — zohoAssignmentId is null", assignmentId);
+                return ResponseEntity.status(500).body(Map.of("success", false, "error", "Assignment has no Zoho ID — cannot update CRM"));
+            }
+            try {
+                String accessToken = zohoAuthService.getAccessToken();
+                HttpHeaders zh = new HttpHeaders();
+                zh.set("Authorization", "Zoho-oauthtoken " + accessToken);
+                zh.setContentType(MediaType.APPLICATION_JSON);
+                Map<String, Object> zohoBody = Map.of("data", List.of(Map.of("Status", "Property Accepted")));
+                ResponseEntity<String> zohoResp = restTemplate.exchange(
+                        zohoBaseUrl + "/Client_Management/" + assignment.getZohoAssignmentId(),
+                        HttpMethod.PUT,
+                        new HttpEntity<>(zohoBody, zh),
+                        String.class);
+                log.info("Zoho CRM updated to 'Property Accepted' for assignment {} — HTTP {}", assignmentId, zohoResp.getStatusCode());
+            } catch (Exception e) {
+                log.error("Zoho CRM update failed for assignment {}: {}", assignmentId, e.getMessage());
+                return ResponseEntity.status(500).body(Map.of("success", false, "error", "Failed to update CRM: " + e.getMessage()));
+            }
+        }
+
+        // For REQUEST_WALKTHROUGH: store locally (no Zoho write, so we track it ourselves)
+        if ("REQUEST_WALKTHROUGH".equalsIgnoreCase(action)) {
+            assignment.setWalkthroughRequested(true);
+            assignmentRepository.save(assignment);
+        }
+
+        // Email fires only after Zoho succeeds (or for REQUEST_WALKTHROUGH which doesn't need Zoho)
         try {
             emailService.sendClientActionNotification(clientName, propertyAddress, action, remark);
         } catch (Exception e) {
-            log.warn("Failed to send client action notification: {}", e.getMessage());
-            return ResponseEntity.status(500).body(Map.of("success", false, "error", "Failed to send email: " + e.getMessage()));
+            log.warn("Email failed for assignment {}: {}", assignmentId, e.getMessage());
+            return ResponseEntity.status(500).body(Map.of("success", false, "error", "Email failed: " + e.getMessage()));
         }
 
-        return ResponseEntity.ok(Map.of("success", true, "message", "Notification sent"));
+        return ResponseEntity.ok(Map.of("success", true, "message", "Done"));
     }
 
     /**

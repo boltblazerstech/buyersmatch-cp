@@ -132,10 +132,16 @@ const PropertyDetail = () => {
           ? "Interest registered! Our team has been notified."
           : "Feedback sent. Our team has been notified.",
       );
+      if (type === "ACCEPT") {
+        setAssignment((prev) => ({ ...prev, portalStatus: "ACCEPTED" }));
+      } else if (type === "REQUEST_WALKTHROUGH") {
+        setAssignment((prev) => ({ ...prev, walkthroughRequested: true }));
+      }
       setShowConfirmModal(null);
       setRemark("");
     } catch (error) {
-      toast("Action failed: " + error.message, "error");
+      const msg = error.response?.data?.error || error.message;
+      toast("Action failed: " + msg, "error");
     } finally {
       setActionLoading(false);
     }
@@ -315,14 +321,14 @@ const PropertyDetail = () => {
                       ? "bg-red-500/10 text-red-400 border-red-500/30"
                       : assignment.portalStatus === "PURCHASED"
                         ? "bg-gold/10 text-gold border-gold/30"
-                        : "bg-blue-500/10 text-blue-400 border-blue-500/30"
+                        : "bg-white/5 text-gray-400 border-white/10"
                 }`}
               >
                 {assignment.portalStatus || "PENDING"}
               </span>
             </div>
 
-            {assignment.portalStatus === "PENDING" && (
+            {assignment.portalStatus === "PENDING" || !assignment.portalStatus ? (
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowConfirmModal("ACCEPT")}
@@ -330,14 +336,23 @@ const PropertyDetail = () => {
                 >
                   <CheckCircle2 size={16} /> Accept
                 </button>
-                <button
-                  onClick={() => setShowConfirmModal("REQUEST_WALKTHROUGH")}
-                  className="flex items-center gap-2 px-5 py-2.5 border border-teal/50 text-teal font-bold text-sm rounded-xl hover:bg-teal/10 transition-all"
-                >
-                  <MessageSquare size={16} /> Request Walkthrough
-                </button>
+                {assignment.walkthroughRequested ? (
+                  <button
+                    disabled
+                    className="flex items-center gap-2 px-5 py-2.5 border border-blue-500/30 text-blue-400/60 font-bold text-sm rounded-xl cursor-not-allowed opacity-60"
+                  >
+                    <MessageSquare size={16} /> Walkthrough Requested
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setShowConfirmModal("REQUEST_WALKTHROUGH")}
+                    className="flex items-center gap-2 px-5 py-2.5 border border-teal/50 text-teal font-bold text-sm rounded-xl hover:bg-teal/10 transition-all"
+                  >
+                    <MessageSquare size={16} /> Request Walkthrough
+                  </button>
+                )}
               </div>
-            )}
+            ) : null}
           </div>
         )}
 
@@ -863,8 +878,6 @@ const PropertyDetail = () => {
               </div>
             </div>
 
-
-
             {/* Offer Details */}
             {(assignment?.offerAmount || assignment?.offerDate) && (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 border-t border-white/5 pt-8">
@@ -884,7 +897,11 @@ const PropertyDetail = () => {
                       Offer Date
                     </p>
                     <p className="text-xl font-bold text-white">
-                      {assignment.offerDate.split('T')[0].split('-').reverse().join('-')}
+                      {assignment.offerDate
+                        .split("T")[0]
+                        .split("-")
+                        .reverse()
+                        .join("-")}
                     </p>
                   </div>
                 )}
@@ -1375,15 +1392,15 @@ const PropertyDetail = () => {
               {showConfirmModal === "ACCEPT"
                 ? "Express Interest?"
                 : showConfirmModal === "REQUEST_WALKTHROUGH"
-                ? "Request Walkthrough?"
-                : "Not Interested?"}
+                  ? "Request Walkthrough?"
+                  : "Not Interested?"}
             </h3>
             <p className="text-gray-400 text-center mb-6">
               {showConfirmModal === "ACCEPT"
                 ? "Your agent will be notified of your interest in this property."
                 : showConfirmModal === "REQUEST_WALKTHROUGH"
-                ? "Your agent will be notified that you would like a walkthrough of this property."
-                : "Your agent will be notified that this property isn't right for you."}
+                  ? "Your agent will be notified that you would like a walkthrough of this property."
+                  : "Your agent will be notified that this property isn't right for you."}
             </p>
             <textarea
               className="w-full bg-white/[0.03] border border-white/10 rounded-2xl p-4 text-sm text-gray-300 focus:border-teal outline-none transition-all resize-none h-24 mb-6"
@@ -1409,7 +1426,7 @@ const PropertyDetail = () => {
                 {actionLoading ? (
                   <Loader2 className="animate-spin" size={20} />
                 ) : (
-                  "Send to Agent"
+                  "Send to BuyersMatch"
                 )}
               </button>
             </div>
