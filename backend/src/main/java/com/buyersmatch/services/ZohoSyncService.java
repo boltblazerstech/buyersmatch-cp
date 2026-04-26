@@ -279,6 +279,66 @@ public class ZohoSyncService {
         return records;
     }
 
+    /**
+     * Fetches all records modified after `since` using Zoho's search API
+     * with a Modified_Time:greater_than criteria filter.
+     *
+     * This is used instead of the If-Modified-Since HTTP header because Zoho CRM
+     * custom modules (Buyer_Briefs, Properties, etc.) return 304 Not Modified
+     * unreliably — new records are silently skipped when using the header approach.
+     */
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> fetchModifiedAfter(String moduleName, LocalDateTime since) {
+        List<Map<String, Object>> allRecords = new ArrayList<>();
+        int page = 1;
+        boolean moreRecords = true;
+
+        ZonedDateTime zdt = since.atZone(ZoneId.of("UTC"));
+        String dateStr = ZOHO_DATE_FORMAT.format(zdt);
+        String rawCriteria = "(Modified_Time:greater_than:" + dateStr + ")";
+        String encodedCriteria;
+        try {
+            encodedCriteria = java.net.URLEncoder.encode(rawCriteria, java.nio.charset.StandardCharsets.UTF_8.toString());
+        } catch (java.io.UnsupportedEncodingException e) {
+            encodedCriteria = rawCriteria;
+        }
+
+        while (moreRecords) {
+            String url = baseUrl + "/" + moduleName + "/search?criteria=" + encodedCriteria + "&per_page=200&page=" + page;
+            HttpEntity<Void> entity = new HttpEntity<>(getZohoHeaders(null));
+            try {
+                ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.GET, entity, Map.class);
+
+                if (response.getStatusCode().value() == 204) {
+                    log.debug("fetchModifiedAfter({}): no records modified after {}", moduleName, dateStr);
+                    break;
+                }
+
+                if (response.getStatusCode() != HttpStatus.OK || response.getBody() == null) {
+                    log.warn("fetchModifiedAfter({}): unexpected status {} on page {}", moduleName, response.getStatusCode(), page);
+                    break;
+                }
+
+                Map<String, Object> body = response.getBody();
+                List<Map<String, Object>> data = (List<Map<String, Object>>) body.get("data");
+                if (data == null || data.isEmpty()) break;
+
+                allRecords.addAll(data);
+
+                Map<String, Object> info = (Map<String, Object>) body.get("info");
+                moreRecords = info != null && Boolean.TRUE.equals(info.get("more_records"));
+                page++;
+
+            } catch (Exception e) {
+                log.error("fetchModifiedAfter({}) page {} error: {}", moduleName, page, e.getMessage());
+                break;
+            }
+        }
+
+        log.info("fetchModifiedAfter({}): found {} records modified after {}", moduleName, allRecords.size(), dateStr);
+        return allRecords;
+    }
+
     // -------------------------------------------------------------------------
     // METHOD 1: Sync Buyer Briefs
     // -------------------------------------------------------------------------
@@ -292,7 +352,7 @@ public class ZohoSyncService {
             LocalDateTime since = fullSync ? null : getLastSyncedAt("BuyerBriefs");
             List<Map<String, Object>> records = (fullSync && limit != null)
                     ? fetchNewest("/Buyer_Briefs", limit)
-                    : fetchAllPages("/Buyer_Briefs", since);
+                    : (since != null ? fetchModifiedAfter("Buyer_Briefs", since) : fetchAllPages("/Buyer_Briefs", null));
 
             if (records.isEmpty() && since != null) {
                 log.info("BuyerBriefs: no changes since {}", since);
@@ -382,7 +442,7 @@ public class ZohoSyncService {
             LocalDateTime since = fullSync ? null : getLastSyncedAt("Properties");
             List<Map<String, Object>> records = (fullSync && limit != null)
                     ? fetchNewest("/Properties", limit)
-                    : fetchAllPages("/Properties", since);
+                    : (since != null ? fetchModifiedAfter("Properties", since) : fetchAllPages("/Properties", null));
 
             if (records.isEmpty() && since != null) {
                 log.info("Properties: no changes since {}", since);
@@ -459,10 +519,9 @@ public class ZohoSyncService {
 
         try {
             LocalDateTime since = fullSync ? null : getLastSyncedAt("PropertyDocuments");
-            // If limit is provided, use fetchNewest. If fullSync is requested without limit, fetch all (no more hardcoded 200)
             List<Map<String, Object>> records = (fullSync && limit != null)
                     ? fetchNewest("/Property_Documents", limit)
-                    : fetchAllPages("/Property_Documents", since);
+                    : (since != null ? fetchModifiedAfter("Property_Documents", since) : fetchAllPages("/Property_Documents", null));
 
             if (records.isEmpty()) {
                 log.info("PropertyDocuments: no records returned");
@@ -572,7 +631,7 @@ public class ZohoSyncService {
             LocalDateTime since = fullSync ? null : getLastSyncedAt("ClientManagement");
             List<Map<String, Object>> records = (fullSync && limit != null)
                     ? fetchNewest("/Client_Management", limit)
-                    : fetchAllPages("/Client_Management", since);
+                    : (since != null ? fetchModifiedAfter("Client_Management", since) : fetchAllPages("/Client_Management", null));
 
             if (records.isEmpty() && since != null) {
                 log.info("ClientManagement: no changes since {}", since);
