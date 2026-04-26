@@ -15,7 +15,7 @@ const timeAgo = (isoString) => {
 };
 
 // watchModules: array of sync_state module names to poll for completion
-const SyncButton = ({ label, icon: Icon, endpoint, colorClass, activeColorClass, lastSyncedAt, watchModules }) => {
+const SyncButton = ({ label, icon: Icon, endpoint, colorClass, activeColorClass, lastSyncedAt, watchModules, onDone }) => {
   const [state, setState] = useState("idle"); // idle | syncing | done | error
   const pollRef   = useRef(null);
   const snapshotRef = useRef(0); // lastSyncedAt value captured at click time
@@ -59,6 +59,7 @@ const SyncButton = ({ label, icon: Icon, endpoint, colorClass, activeColorClass,
           if (latest > snapshotRef.current) {
             stopPolling();
             setState("done");
+            if (onDone) onDone();
             setTimeout(() => setState("idle"), 3000);
           }
         } catch { /* ignore transient poll errors */ }
@@ -105,18 +106,19 @@ const AdminLayout = ({ children, title }) => {
   const user = getStoredUser("ADMIN");
   const [syncStatus, setSyncStatus] = useState({});
 
+  const loadSyncStatus = async () => {
+    try {
+      const { getSyncStatus } = await import('../api/admin');
+      const modules = await getSyncStatus();
+      const map = {};
+      (Array.isArray(modules) ? modules : []).forEach(m => { map[m.module] = m.lastSyncedAt; });
+      setSyncStatus(map);
+    } catch { /* silent */ }
+  };
+
   useEffect(() => {
-    const load = async () => {
-      try {
-        const { getSyncStatus } = await import('../api/admin');
-        const modules = await getSyncStatus();
-        const map = {};
-        (Array.isArray(modules) ? modules : []).forEach(m => { map[m.module] = m.lastSyncedAt; });
-        setSyncStatus(map);
-      } catch { /* silent */ }
-    };
-    load();
-    const id = setInterval(load, 60000);
+    loadSyncStatus();
+    const id = setInterval(loadSyncStatus, 60000);
     return () => clearInterval(id);
   }, []);
 
@@ -173,6 +175,7 @@ const AdminLayout = ({ children, title }) => {
             activeColorClass="hover:bg-teal hover:text-navy"
             lastSyncedAt={dataLastSync}
             watchModules={["BuyerBriefs", "Properties", "PropertyDocuments", "ClientManagement"]}
+            onDone={loadSyncStatus}
           />
 
           <SyncButton
@@ -183,6 +186,7 @@ const AdminLayout = ({ children, title }) => {
             activeColorClass="hover:bg-purple-500 hover:text-white"
             lastSyncedAt={syncStatus["Media"] ?? null}
             watchModules={["Media"]}
+            onDone={loadSyncStatus}
           />
 
           <button
