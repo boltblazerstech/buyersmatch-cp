@@ -116,6 +116,7 @@ public class ClientController {
 
         allAssignments = allAssignments.stream()
                 .filter(a -> a.getZohoBriefId() == null || activeBriefIds.contains(a.getZohoBriefId()))
+                .filter(a -> !"Brief Confirmed".equalsIgnoreCase(a.getZohoStatus()))
                 .collect(Collectors.toList());
 
         // 2. Enrich assignments with property data
@@ -527,35 +528,42 @@ public class ClientController {
     }
 
     private Map<String, Object> categorizeDocuments(List<PropertyDocument> all, String propertyVideoUrl) {
-        List<Map<String, Object>> propertyImages = new ArrayList<>(); // gallery at top
-        List<Map<String, Object>> images = new ArrayList<>(); // Due Diligence etc. — docs section
-        List<Map<String, Object>> videos = new ArrayList<>();
+        List<Map<String, Object>> propertyImages = new ArrayList<>();
+        List<Map<String, Object>> images = new ArrayList<>();
         List<Map<String, Object>> pdfs = new ArrayList<>();
         List<Map<String, Object>> others = new ArrayList<>();
-        List<String> externalVideos = new ArrayList<>();
+        // url → caption; LinkedHashMap preserves order and deduplicates by URL
+        Map<String, String> videoMap = new LinkedHashMap<>();
 
         if (propertyVideoUrl != null && !propertyVideoUrl.isBlank()) {
-            externalVideos.add(propertyVideoUrl);
+            videoMap.putIfAbsent(propertyVideoUrl, null);
         }
 
         Set<String> imgExts = Set.of("png", "jpg", "jpeg", "webp", "gif");
         Set<String> videoExts = Set.of("mp4", "mov", "movie", "webm");
 
         for (PropertyDocument doc : all) {
-            if (doc.getPropertyVideoUrl() != null && !doc.getPropertyVideoUrl().isBlank()) {
-                externalVideos.add(doc.getPropertyVideoUrl());
-            }
             String ext = doc.getFileExtension() != null ? doc.getFileExtension().toLowerCase() : "";
             String type = doc.getDocumentType() != null ? doc.getDocumentType() : "";
+
+            // Property Video Link — embed via property_video_url (YouTube URL)
+            if ("Property Video Link".equals(type)) {
+                if (doc.getPropertyVideoUrl() != null && !doc.getPropertyVideoUrl().isBlank()) {
+                    videoMap.putIfAbsent(doc.getPropertyVideoUrl(), doc.getCaption());
+                }
+                continue;
+            }
+            // All other video types/extensions — skip entirely
+            if ("Property Video".equals(type) || "VIDEO".equals(type) || videoExts.contains(ext)) {
+                continue;
+            }
+
             Map<String, Object> projected = projectDoc(doc);
 
-            // PROPERTY_IMAGE / IMAGE (legacy) → top gallery
-            if ("PROPERTY_IMAGE".equals(type) || "IMAGE".equals(type)) {
+            if ("Property Image".equals(type) || "Property Images".equals(type) || "PROPERTY_IMAGE".equals(type)) {
                 propertyImages.add(projected);
-            } else if ("DUE_DILIGENCE_IMAGE".equals(type) || imgExts.contains(ext)) {
+            } else if ("Due Diligence Image".equals(type) || "DUE_DILIGENCE_IMAGE".equals(type) || imgExts.contains(ext)) {
                 images.add(projected);
-            } else if ("VIDEO".equals(type) || videoExts.contains(ext)) {
-                videos.add(projected);
             } else if ("pdf".equals(ext)) {
                 pdfs.add(projected);
             } else {
@@ -563,13 +571,21 @@ public class ClientController {
             }
         }
 
+        List<Map<String, String>> externalVideos = new ArrayList<>();
+        for (Map.Entry<String, String> entry : videoMap.entrySet()) {
+            Map<String, String> map = new HashMap<>();
+            map.put("url", entry.getKey());
+            map.put("caption", entry.getValue());
+            externalVideos.add(map);
+        }
+
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("propertyImages", propertyImages);
         result.put("images", images);
-        result.put("videos", videos);
+        result.put("videos", List.of());
         result.put("pdfs", pdfs);
         result.put("others", others);
-        result.put("externalVideos", externalVideos.stream().distinct().toList());
+        result.put("externalVideos", externalVideos);
         return result;
     }
 

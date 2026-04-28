@@ -72,6 +72,7 @@ const PropertyDetail = () => {
   const [remark, setRemark] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   const [previewImg, setPreviewImg] = useState(null); // { url, caption }
+  const [activeExternalVideoIndex, setActiveExternalVideoIndex] = useState(0);
   const [clientNotes, setClientNotes] = useState("");
   const [savingNotes, setSavingNotes] = useState(false);
   const [isEditingNotes, setIsEditingNotes] = useState(false);
@@ -311,24 +312,28 @@ const PropertyDetail = () => {
           <div className="flex flex-wrap items-center justify-between gap-4 mb-8 p-5 bg-navy border border-white/5 rounded-2xl">
             <div className="flex items-center gap-3">
               <span className="text-xs text-gray-500 uppercase tracking-widest font-bold">
-                Assignment Status
+                Status
               </span>
-              <span
-                className={`px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-widest border ${
-                  assignment.portalStatus === "ACCEPTED"
-                    ? "bg-teal/10 text-teal border-teal/30"
-                    : assignment.portalStatus === "REJECTED"
-                      ? "bg-red-500/10 text-red-400 border-red-500/30"
-                      : assignment.portalStatus === "PURCHASED"
-                        ? "bg-gold/10 text-gold border-gold/30"
-                        : "bg-white/5 text-gray-400 border-white/10"
-                }`}
-              >
-                {assignment.portalStatus || "PENDING"}
-              </span>
+              {assignment.portalStatus !== "PENDING" &&
+                assignment.portalStatus && (
+                  <span
+                    className={`px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-widest border ${
+                      assignment.portalStatus === "ACCEPTED"
+                        ? "bg-teal/10 text-teal border-teal/30"
+                        : assignment.portalStatus === "REJECTED"
+                          ? "bg-red-500/10 text-red-400 border-red-500/30"
+                          : assignment.portalStatus === "PURCHASED"
+                            ? "bg-gold/10 text-gold border-gold/30"
+                            : "bg-white/5 text-gray-400 border-white/10"
+                    }`}
+                  >
+                    {assignment.zohoStatus || assignment.portalStatus}
+                  </span>
+                )}
             </div>
 
-            {assignment.portalStatus === "PENDING" || !assignment.portalStatus ? (
+            {assignment.portalStatus === "PENDING" ||
+            !assignment.portalStatus ? (
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowConfirmModal("ACCEPT")}
@@ -763,8 +768,13 @@ const PropertyDetail = () => {
                       const isPurchasedMark =
                         !isTerminal &&
                         item.idx === 7 &&
-                        state !== "unreachable" &&
-                        state !== "pending";
+                        [
+                          "contract unconditional",
+                          "tenanted",
+                          "done",
+                          "settlement done",
+                          "psi"
+                        ].includes((assignment?.zohoStatus || "").toLowerCase().trim());
                       const cellOpacity =
                         state === "unreachable" && !isTerminal
                           ? "opacity-40"
@@ -915,6 +925,54 @@ const PropertyDetail = () => {
             <p className="text-gray-400 leading-relaxed text-lg">{overview}</p>
           </div>
 
+          {/* Conveyancer */}
+          {assignment &&
+            (assignment.conveyancerName || assignment.conveyancerEmail) && (
+              <div className="bg-navy border border-teal/10 rounded-3xl p-8">
+                <div className="flex items-center gap-3 mb-6">
+                  <BookOpen className="text-teal" size={24} />
+                  <h3 className="text-xl font-bold text-white">Conveyancer</h3>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-6">
+                  {assignment.conveyancerName && (
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-teal/10 border border-teal/20 flex items-center justify-center flex-shrink-0">
+                        <span className="text-teal font-bold text-sm">
+                          {assignment.conveyancerName.charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-0.5">
+                          Name
+                        </p>
+                        <p className="text-white font-semibold">
+                          {assignment.conveyancerName}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  {assignment.conveyancerEmail && (
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-teal/10 border border-teal/20 flex items-center justify-center flex-shrink-0">
+                        <ExternalLink className="text-teal" size={16} />
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-0.5">
+                          Email
+                        </p>
+                        <a
+                          href={`mailto:${assignment.conveyancerEmail}`}
+                          className="text-teal hover:underline font-semibold"
+                        >
+                          {assignment.conveyancerEmail}
+                        </a>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
           {/* 5. Documents & Media */}
           {(() => {
             const hasAny =
@@ -937,23 +995,7 @@ const PropertyDetail = () => {
               return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
             };
 
-            const TYPE_LABEL = {
-              PROPERTY_IMAGE: "Property Image",
-              DUE_DILIGENCE_IMAGE: "Due Diligence Image",
-              VIDEO: "Property Video",
-              REGION_REPORT: "Suburb / Region Report",
-              CORE_LOGIC: "Core Logic Document",
-              CMA: "CMA Document",
-              CASHFLOW: "Cash Flow Calculator",
-              INSURANCE: "Insurance Estimate",
-              CONTRACT: "Contract Document",
-              STASH: "Stash Document",
-              REPORT: "Report",
-              FINANCIAL: "Financial Document",
-              IMAGE: "Property Image",
-              DOCUMENT: "Document",
-            };
-            const typeLabel = (t) => TYPE_LABEL[t] || t || "Document";
+            const typeLabel = (t) => t || "Document";
 
             return (
               <div className="space-y-8">
@@ -964,110 +1006,116 @@ const PropertyDetail = () => {
                   </h3>
                 </div>
 
-                {/* ── Videos (always inline player) ── */}
-                {documents.videos.length > 0 && (
-                  <div className="space-y-4">
-                    <p className="text-[10px] font-bold text-teal uppercase tracking-widest flex items-center gap-2">
-                      <Play size={12} /> Videos
-                    </p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {documents.videos.map((vid, idx) => (
-                        <div key={idx} className="space-y-2">
-                          <div className="aspect-video rounded-2xl overflow-hidden border border-teal/20 bg-navy">
-                            <video
-                              controls
-                              className="w-full h-full"
-                              src={vid.url}
-                            />
-                          </div>
-                          <div className="flex items-center justify-between px-1">
-                            <div className="min-w-0">
-                              <p className="text-xs font-bold text-white leading-tight">
-                                {vid.caption || vid.fileName || "—"}
-                              </p>
-                              <p className="text-[10px] text-teal/70 font-medium mt-0.5">
-                                {typeLabel(vid.documentType)}
-                                {fmtSize(vid.fileSizeBytes)
-                                  ? ` · ${fmtSize(vid.fileSizeBytes)}`
-                                  : ""}
-                              </p>
-                            </div>
-                            {vid.url && (
-                              <button
-                                onClick={() =>
-                                  handleDownload(
-                                    vid.url,
-                                    vid.fileName || vid.caption || "video",
-                                  )
-                                }
-                                className="p-2 text-gray-500 hover:text-teal bg-white/5 rounded-lg hover:bg-white/10 transition-colors shrink-0 ml-2"
-                                title="Download"
-                              >
-                                <Download size={15} />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* ── External Videos ── */}
+                {/* ── YouTube Video Walkthrough ── */}
                 {documents.externalVideos.length > 0 && (
                   <div className="space-y-4">
                     <p className="text-[10px] font-bold text-teal uppercase tracking-widest flex items-center gap-2">
                       <Play size={12} /> Video Walkthrough
                     </p>
                     <div className="space-y-4">
-                      {documents.externalVideos.map((url, idx) => {
-                        const embedUrl = url.includes("youtube.com/watch?v=")
-                          ? url.replace("watch?v=", "embed/")
-                          : url.includes("youtu.be/")
-                            ? "https://www.youtube.com/embed/" +
-                              url.split("youtu.be/")[1]
-                            : null;
-                        return embedUrl ? (
-                          <div
-                            key={idx}
-                            className="aspect-video rounded-2xl overflow-hidden border border-teal/20 bg-navy"
-                          >
-                            <iframe
-                              width="100%"
-                              height="100%"
-                              src={embedUrl}
-                              title={`Video ${idx + 1}`}
-                              frameBorder="0"
-                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                              allowFullScreen
-                            />
+                      {(() => {
+                        const getEmbedInfo = (vid) => {
+                          if (!vid || !vid.url) return null;
+                          const raw = vid.url.trim();
+                          try {
+                            const u = new URL(raw);
+                            let videoId = null;
+                            if (u.hostname.includes("youtube.com")) {
+                              videoId = u.searchParams.get("v");
+                              if (!videoId) {
+                                const seg = u.pathname.split("/").filter(Boolean);
+                                if (seg.length >= 2 && ["shorts", "live", "embed", "v"].includes(seg[0])) {
+                                  videoId = seg[1];
+                                }
+                              }
+                            } else if (u.hostname === "youtu.be") {
+                              videoId = u.pathname.slice(1);
+                            }
+                            if (videoId) {
+                              return {
+                                embedUrl: `https://www.youtube.com/embed/${videoId}`,
+                                thumbnailUrl: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
+                                caption: vid.caption
+                              };
+                            }
+                          } catch {}
+                          return { rawUrl: raw, caption: vid.caption };
+                        };
+
+                        const videoInfos = documents.externalVideos.map(getEmbedInfo).filter(Boolean);
+                        if (videoInfos.length === 0) return null;
+
+                        const activeInfo = videoInfos[activeExternalVideoIndex] || videoInfos[0];
+
+                        return (
+                          <div className="flex flex-col gap-4">
+                            {activeInfo.embedUrl ? (
+                              <div className="space-y-3">
+                                <div className="aspect-video rounded-2xl overflow-hidden border border-teal/20 bg-navy">
+                                  <iframe
+                                    width="100%"
+                                    height="100%"
+                                    src={activeInfo.embedUrl}
+                                    title="Active Video"
+                                    frameBorder="0"
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                    allowFullScreen
+                                  />
+                                </div>
+                                {activeInfo.caption && (
+                                  <p className="text-sm font-medium text-white px-1">{activeInfo.caption}</p>
+                                )}
+                              </div>
+                            ) : (
+                              <a
+                                href={activeInfo.rawUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-3 p-4 bg-navy border border-teal/20 rounded-2xl hover:border-teal/50 transition-all"
+                              >
+                                <div className="w-10 h-10 rounded-xl bg-teal/10 flex items-center justify-center text-teal shrink-0">
+                                  <Play size={18} />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm font-bold text-white">
+                                    {activeInfo.caption || "Property Video Link"}
+                                  </p>
+                                  <p className="text-xs text-teal truncate">
+                                    {activeInfo.rawUrl}
+                                  </p>
+                                </div>
+                                <ExternalLink size={16} className="text-gray-500 shrink-0" />
+                              </a>
+                            )}
+
+                            {/* Thumbnails row */}
+                            {videoInfos.length > 1 && (
+                              <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+                                {videoInfos.map((info, idx) => (
+                                  <button
+                                    key={idx}
+                                    onClick={() => setActiveExternalVideoIndex(idx)}
+                                    className={`relative shrink-0 w-32 aspect-video rounded-xl overflow-hidden border-2 transition-all ${activeExternalVideoIndex === idx ? 'border-teal' : 'border-transparent opacity-60 hover:opacity-100'}`}
+                                  >
+                                    {info.thumbnailUrl ? (
+                                      <>
+                                        <img src={info.thumbnailUrl} alt={`Video ${idx+1}`} className="w-full h-full object-cover" />
+                                        <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                                          <Play size={20} className="text-white drop-shadow-md" />
+                                        </div>
+                                      </>
+                                    ) : (
+                                      <div className="w-full h-full bg-navy flex items-center justify-center border border-teal/20">
+                                        <Play size={20} className="text-teal" />
+                                      </div>
+                                    )}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
                           </div>
-                        ) : (
-                          <a
-                            key={idx}
-                            href={url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-3 p-4 bg-navy border border-teal/20 rounded-2xl hover:border-teal/50 transition-all"
-                          >
-                            <div className="w-10 h-10 rounded-xl bg-teal/10 flex items-center justify-center text-teal shrink-0">
-                              <Play size={18} />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-sm font-bold text-white">
-                                Property Video Link
-                              </p>
-                              <p className="text-xs text-teal truncate">
-                                {url}
-                              </p>
-                            </div>
-                            <ExternalLink
-                              size={16}
-                              className="text-gray-500 shrink-0"
-                            />
-                          </a>
                         );
-                      })}
+                      })()}
                     </div>
                   </div>
                 )}
@@ -1268,47 +1316,6 @@ const PropertyDetail = () => {
               </div>
             );
           })()}
-
-          {/* Conveyancer */}
-          {assignment && (assignment.conveyancerName || assignment.conveyancerEmail) && (
-            <div className="bg-navy border border-teal/10 rounded-3xl p-8">
-              <div className="flex items-center gap-3 mb-6">
-                <BookOpen className="text-teal" size={24} />
-                <h3 className="text-xl font-bold text-white">Conveyancer</h3>
-              </div>
-              <div className="flex flex-col sm:flex-row gap-6">
-                {assignment.conveyancerName && (
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-teal/10 border border-teal/20 flex items-center justify-center flex-shrink-0">
-                      <span className="text-teal font-bold text-sm">
-                        {assignment.conveyancerName.charAt(0).toUpperCase()}
-                      </span>
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-0.5">Name</p>
-                      <p className="text-white font-semibold">{assignment.conveyancerName}</p>
-                    </div>
-                  </div>
-                )}
-                {assignment.conveyancerEmail && (
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-teal/10 border border-teal/20 flex items-center justify-center flex-shrink-0">
-                      <ExternalLink className="text-teal" size={16} />
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-0.5">Email</p>
-                      <a
-                        href={`mailto:${assignment.conveyancerEmail}`}
-                        className="text-teal hover:underline font-semibold"
-                      >
-                        {assignment.conveyancerEmail}
-                      </a>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
 
           {/* Agent Notes */}
           <div className="bg-navy border border-teal/10 rounded-3xl p-8">

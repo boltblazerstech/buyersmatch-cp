@@ -53,7 +53,7 @@ const Responses = () => {
 
   const filters = [
     { label: 'All Responses', value: 'ALL' },
-    { label: 'Pending', value: 'PENDING' },
+    { label: 'Assigned', value: 'PENDING' },
     { label: 'Accepted', value: 'ACCEPTED' },
     { label: 'Rejected', value: 'REJECTED' },
     { label: 'Purchased', value: 'PURCHASED' },
@@ -116,7 +116,7 @@ const Responses = () => {
                     res.portalStatus === 'PURCHASED' ? 'bg-gold/10 text-gold border-gold/20' :
                     'bg-blue-500/10 text-blue-400 border-blue-500/20'
                   }`}>
-                    {res.portalStatus}
+                    {res.portalStatus === 'PENDING' ? 'ASSIGNED' : res.portalStatus}
                   </span>
                 </div>
 

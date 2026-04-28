@@ -22,7 +22,6 @@ public class PropertyDocument {
 
     private String zohoPropertyId;
 
-    // Normalized: IMAGE | VIDEO | REPORT | CONTRACT | FINANCIAL | DOCUMENT
     private String documentType;
 
     @Column(columnDefinition = "text")

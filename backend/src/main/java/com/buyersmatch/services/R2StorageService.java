@@ -374,6 +374,18 @@ public class R2StorageService {
         return publicUrl + "/" + fileKey;
     }
 
+    public void deleteObject(String fileKey) {
+        try {
+            s3.deleteObject(DeleteObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(fileKey)
+                    .build());
+            log.info("Deleted from R2: {}", fileKey);
+        } catch (Exception e) {
+            log.error("Failed to delete {} from R2: {}", fileKey, e.getMessage());
+        }
+    }
+
     public void deleteAllObjects() {
         try {
             ListObjectsV2Request listReq = ListObjectsV2Request.builder()

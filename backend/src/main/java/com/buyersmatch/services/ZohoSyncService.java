@@ -42,26 +42,6 @@ public class ZohoSyncService {
     private static final DateTimeFormatter ZOHO_DATE_FORMAT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXXX");
 
-    // -------------------------------------------------------------------------
-    // DOCUMENT TYPE NORMALIZATION
-    // -------------------------------------------------------------------------
-
-    private String normalizeDocumentType(String raw) {
-        if (raw == null) return "DOCUMENT";
-        return switch (raw.trim()) {
-            case "Property Image", "Property Images" -> "PROPERTY_IMAGE";
-            case "Due Diligence Image"               -> "DUE_DILIGENCE_IMAGE";
-            case "Property Video"                    -> "VIDEO";
-            case "Suburb / Region Report"            -> "REGION_REPORT";
-            case "Core Logic Document"               -> "CORE_LOGIC";
-            case "CMA Document"                      -> "CMA";
-            case "Cash Flow Calculator"              -> "CASHFLOW";
-            case "Insurance Estimate"                -> "INSURANCE";
-            case "Contract Document"                 -> "CONTRACT";
-            case "Stash Document"                    -> "STASH";
-            default                                  -> "DOCUMENT";
-        };
-    }
 
     // -------------------------------------------------------------------------
     // HELPER METHODS
@@ -292,7 +272,7 @@ public class ZohoSyncService {
             LocalDateTime since = fullSync ? null : getLastSyncedAt("BuyerBriefs");
             List<Map<String, Object>> records = (fullSync && limit != null)
                     ? fetchNewest("/Buyer_Briefs", limit)
-                    : fetchAllPages("/Buyer_Briefs", null);
+                    : fetchAllPages("/Buyer_Briefs", since);
 
             if (records.isEmpty() && since != null) {
                 log.info("BuyerBriefs: no changes since {}", since);
@@ -382,7 +362,7 @@ public class ZohoSyncService {
             LocalDateTime since = fullSync ? null : getLastSyncedAt("Properties");
             List<Map<String, Object>> records = (fullSync && limit != null)
                     ? fetchNewest("/Properties", limit)
-                    : fetchAllPages("/Properties", null);
+                    : fetchAllPages("/Properties", since);
 
             if (records.isEmpty() && since != null) {
                 log.info("Properties: no changes since {}", since);
@@ -396,8 +376,20 @@ public class ZohoSyncService {
                     String zohoPropertyId = r.get("id") != null ? r.get("id").toString() : null;
                     if (zohoPropertyId == null) continue;
 
-                    Property property = propertyRepository.findByZohoPropertyId(zohoPropertyId)
-                            .orElse(Property.builder().build());
+                    String newStatus = r.get("Status") != null ? r.get("Status").toString() : null;
+                    Property existing = propertyRepository.findByZohoPropertyId(zohoPropertyId).orElse(null);
+
+                    // Rejected properties are never stored; cascade delete if they exist in DB
+                    if ("Rejected".equalsIgnoreCase(newStatus)) {
+                        if (existing != null) {
+                            log.info("Property {} is Rejected — cascade deleting from DB and R2", zohoPropertyId);
+                            deletePropertyWithCascade(zohoPropertyId);
+                        }
+                        continue;
+                    }
+
+                    boolean isNew = (existing == null);
+                    Property property = existing != null ? existing : Property.builder().build();
 
                     property.setZohoPropertyId(zohoPropertyId);
                     property.setAddress(r.get("Name") != null ? r.get("Name").toString() : null);
@@ -416,7 +408,7 @@ public class ZohoSyncService {
                     property.setAskingPriceMax(toBigDecimal(r.get("Asking_Price_Max")));
                     property.setMinRentPerMonth(toBigDecimal(r.get("Minimum_Rent_Per_Month")));
                     property.setYieldPercent(toDouble(r.get("Yield_Percent")));
-                    property.setStatus(r.get("Status") != null ? r.get("Status").toString() : null);
+                    property.setStatus(newStatus);
                     property.setSaleType(r.get("Sale_Type") != null ? r.get("Sale_Type").toString() : null);
                     property.setRentalSituation(r.get("Rental_Situation") != null ? r.get("Rental_Situation").toString() : null);
                     property.setLgaRegion(r.get("LGA_Region") != null ? r.get("LGA_Region").toString() : null);
@@ -426,6 +418,7 @@ public class ZohoSyncService {
                     property.setStashLink(r.get("Stash_Link") != null ? r.get("Stash_Link").toString() : null);
                     property.setCmaLink(r.get("CMA_Link1") != null ? r.get("CMA_Link1").toString() : null);
                     property.setCoreLogicLink(r.get("Core_Logic_Link") != null ? r.get("Core_Logic_Link").toString() : null);
+                    property.setPropertyVideoUrl(r.get("Youtube_Video_URL") != null ? r.get("Youtube_Video_URL").toString() : null);
                     property.setAgentName(getNestedName(r, "Agent_Name"));
                     property.setZohoCreatedAt(r.get("Created_Time") != null ? r.get("Created_Time").toString() : null);
                     property.setZohoModifiedAt(r.get("Modified_Time") != null ? r.get("Modified_Time").toString() : null);
@@ -433,6 +426,13 @@ public class ZohoSyncService {
 
                     propertyRepository.save(property);
                     count++;
+
+                    // Brand-new property found in delta sync — immediately fetch its docs and assignments
+                    if (isNew && !fullSync) {
+                        log.info("New property {} discovered in delta sync — syncing its docs and assignments", zohoPropertyId);
+                        syncDocumentsForSingleProperty(zohoPropertyId);
+                        syncAssignmentsForSingleProperty(zohoPropertyId);
+                    }
                 } catch (Exception e) {
                     log.error("Error mapping Property record {}: {}", r.get("id"), e.getMessage());
                 }
@@ -465,7 +465,7 @@ public class ZohoSyncService {
             LocalDateTime since = fullSync ? null : getLastSyncedAt("PropertyDocuments");
             List<Map<String, Object>> records = (fullSync && limit != null)
                     ? fetchNewest("/Property_Documents", limit)
-                    : fetchAllPages("/Property_Documents", null);
+                    : fetchAllPages("/Property_Documents", since);
 
             if (records.isEmpty()) {
                 log.info("PropertyDocuments: no records returned");
@@ -476,74 +476,26 @@ public class ZohoSyncService {
 
             Set<String> allowedPropertyIds = getPortalClientPropertyIds();
 
+            // Only save docs for properties that exist in our DB (rejected/missing ones excluded)
+            Set<String> validPropertyIds = propertyRepository.findAll().stream()
+                    .map(Property::getZohoPropertyId)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toSet());
+
             for (Map<String, Object> r : records) {
                 try {
                     String zohoDocId = r.get("id") != null ? r.get("id").toString() : null;
                     if (zohoDocId == null) continue;
 
-                    PropertyDocument doc = propertyDocumentRepository.findByZohoDocId(zohoDocId)
-                            .orElse(PropertyDocument.builder().build());
-
-                    doc.setZohoDocId(zohoDocId);
-                    doc.setZohoPropertyId(getNestedId(r, "Property"));
-                    doc.setDocumentType(normalizeDocumentType(r.get("Document_Type") != null ? r.get("Document_Type").toString() : null));
-                    doc.setCaption(r.get("Document_Caption") != null ? r.get("Document_Caption").toString() : null);
-                    doc.setDownloadLink(r.get("Download_Link") != null ? r.get("Download_Link").toString() : null);
-                    doc.setPropertyVideoUrl(r.get("Property_Video_URL") != null ? r.get("Property_Video_URL").toString() : null);
-
-                    Object uploadObj = r.get("Document_Upload");
-                    if (uploadObj instanceof List) {
-                        @SuppressWarnings("unchecked")
-                        List<Map<String, Object>> uploads = (List<Map<String, Object>>) uploadObj;
-                        if (!uploads.isEmpty()) {
-                            Map<String, Object> first = uploads.get(0);
-                            doc.setFileName(first.get("file_Name") != null ? first.get("file_Name").toString() : null);
-                            doc.setFileExtension(first.get("extn") != null ? first.get("extn").toString() : null);
-                            doc.setFileSizeBytes(first.get("original_Size_Byte") != null ? first.get("original_Size_Byte").toString() : null);
-
-                            // Build Zoho CRM REST API download URL — works with OAuth token
-                            Object entityIdObj = first.get("entity_Id");
-                            Object attachmentIdObj = first.get("attachment_Id");
-                            if (entityIdObj != null && attachmentIdObj != null) {
-                                String apiDownloadUrl = baseUrl + "/Property_Documents/"
-                                        + entityIdObj.toString()
-                                        + "/attachments/"
-                                        + attachmentIdObj.toString();
-                                doc.setCrmDownloadUrl(apiDownloadUrl);
-                                log.debug("Constructed CRM download URL: {}", apiDownloadUrl);
-                            } else {
-                                log.warn("Missing entity_Id or attachment_Id for doc {}, cannot build CRM download URL", zohoDocId);
-                            }
-                        }
+                    String docPropertyId = getNestedId(r, "Property");
+                    if (!validPropertyIds.contains(docPropertyId)) {
+                        // Property not in DB (rejected or never synced) — remove orphan doc if any
+                        propertyDocumentRepository.findByZohoDocId(zohoDocId)
+                                .ifPresent(propertyDocumentRepository::delete);
+                        continue;
                     }
 
-                    if (!skipR2) {
-                        String zohoPropertyId = doc.getZohoPropertyId();
-                        if (!isVideoDoc(doc) && allowedPropertyIds.contains(zohoPropertyId)) {
-                            String fileName = doc.getFileName();
-                            String fileExtension = doc.getFileExtension();
-                            String fileKey = r2StorageService.generateFileKey(zohoDocId, fileName);
-                            String contentType = r2StorageService.getContentType(fileExtension);
-
-                            if (r2StorageService.fileExists(fileKey)) {
-                                doc.setR2Url(r2StorageService.getPublicUrl(fileKey));
-                                log.info("Already in R2, skipping: {}", fileKey);
-                            } else {
-                                String r2Url = tryUploadWithFallback(doc, fileKey, contentType);
-                                if (r2Url != null) {
-                                    doc.setR2Url(r2Url);
-                                    log.info("Uploaded to R2: {}", fileKey);
-                                } else {
-                                    doc.setR2Url(null);
-                                    log.warn("Failed to upload to R2: {}", fileKey);
-                                }
-                            }
-                        } else {
-                            log.debug("Skipping R2 upload for property {} - not assigned to any portal client", doc.getZohoPropertyId());
-                        }
-                    }
-
-                    propertyDocumentRepository.save(doc);
+                    savePropertyDocumentRecord(r, zohoDocId, allowedPropertyIds, skipR2);
                     count++;
                 } catch (Exception e) {
                     log.error("Error mapping PropertyDocument record {}: {}", r.get("id"), e.getMessage());
@@ -574,7 +526,7 @@ public class ZohoSyncService {
             LocalDateTime since = fullSync ? null : getLastSyncedAt("ClientManagement");
             List<Map<String, Object>> records = (fullSync && limit != null)
                     ? fetchNewest("/Client_Management", limit)
-                    : fetchAllPages("/Client_Management", null);
+                    : fetchAllPages("/Client_Management", since);
 
             if (records.isEmpty() && since != null) {
                 log.info("ClientManagement: no changes since {}", since);
@@ -583,73 +535,26 @@ public class ZohoSyncService {
                 return;
             }
 
+            // Only save assignments for properties that exist in our DB
+            Set<String> validPropertyIds = propertyRepository.findAll().stream()
+                    .map(Property::getZohoPropertyId)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toSet());
+
             for (Map<String, Object> r : records) {
                 try {
                     String zohoAssignmentId = r.get("id") != null ? r.get("id").toString() : null;
                     if (zohoAssignmentId == null) continue;
 
-                    boolean isNew = assignmentRepository.findByZohoAssignmentId(zohoAssignmentId).isEmpty();
-                    Assignment assignment = assignmentRepository.findByZohoAssignmentId(zohoAssignmentId)
-                            .orElse(Assignment.builder().build());
-
-                    assignment.setZohoAssignmentId(zohoAssignmentId);
-                    assignment.setZohoContactId(getNestedId(r, "Buyer"));
-                    assignment.setZohoPropertyId(getNestedId(r, "Property"));
-                    assignment.setZohoBriefId(getNestedId(r, "Buyer_Brief"));
-
-                    String zohoStatus = r.get("Status") != null ? r.get("Status").toString() : null;
-                    assignment.setZohoStatus(zohoStatus);
-                    
-                    // Sync portalStatus from Zoho Status so CRM changes reflect in UI automatically
-                    if (zohoStatus != null) {
-                        String zs = zohoStatus.toLowerCase();
-                        if (zs.contains("reject") || zs.contains("withdraw")) {
-                            assignment.setPortalStatus("REJECTED");
-                        } else if (zs.contains("accept") || zs.contains("offer") || zs.contains("contract") || zs.contains("bnp") || zs.contains("finance") || zs.contains("settlement") || zs.contains("done") || zs.contains("tenanted") || zs.contains("psi")) {
-                            assignment.setPortalStatus("ACCEPTED");
-                        } else if (zs.contains("assigned")) {
-                            assignment.setPortalStatus("PENDING");
-                        }
-                    } else if (isNew) {
-                        assignment.setPortalStatus("PENDING");
+                    String assignmentPropertyId = getNestedId(r, "Property");
+                    if (assignmentPropertyId != null && !validPropertyIds.contains(assignmentPropertyId)) {
+                        // Property not in DB — remove orphan assignment if any
+                        assignmentRepository.findByZohoAssignmentId(zohoAssignmentId)
+                                .ifPresent(assignmentRepository::delete);
+                        continue;
                     }
 
-                    assignment.setJointBuyersName(r.get("Joint_Buyers_Full_Name") != null ? r.get("Joint_Buyers_Full_Name").toString() : null);
-                    assignment.setSecondaryBuyerEmail(r.get("Secondary_Buyer_Email") != null ? r.get("Secondary_Buyer_Email").toString() : null);
-                    assignment.setFinanceOption(r.get("Finance_Option") != null ? r.get("Finance_Option").toString() : null);
-                    assignment.setFinanceStatus(r.get("Finance_Status") != null ? r.get("Finance_Status").toString() : null);
-                    assignment.setFinanceDate(r.get("Finance_Date") != null ? r.get("Finance_Date").toString() : null);
-                    assignment.setContractStatus(r.get("Contract_Status") != null ? r.get("Contract_Status").toString() : null);
-                    assignment.setContractDate(r.get("Contract_Date") != null ? r.get("Contract_Date").toString() : null);
-                    assignment.setContractSettlementDate(r.get("Contract_Settlement_Date") != null ? r.get("Contract_Settlement_Date").toString() : null);
-                    assignment.setSettlementDate(r.get("Settlement_Date") != null ? r.get("Settlement_Date").toString() : null);
-                    assignment.setOfferAmount(toBigDecimal(r.get("Offer_Amount")));
-                    assignment.setOfferDate(r.get("Offer_Date") != null ? r.get("Offer_Date").toString() : null);
-                    assignment.setPurchasePrice(toBigDecimal(r.get("Purchase_Price")));
-                    assignment.setDepositAmount(toBigDecimal(r.get("Deposit_Amount")));
-                    assignment.setDepositPercentage(toBigDecimal(r.get("Deposit_Percentage")));
-                    assignment.setDepositDueDate(r.get("Deposit_Due_Date") != null ? r.get("Deposit_Due_Date").toString() : null);
-                    assignment.setBnpReportLink(r.get("BNP_Report_Download_Link") != null ? r.get("BNP_Report_Download_Link").toString() : null);
-                    assignment.setFinanceLetterLink(r.get("Finance_Letter_Download_Link") != null ? r.get("Finance_Letter_Download_Link").toString() : null);
-                    assignment.setContractDownloadLink(r.get("Contract_Download_Link") != null ? r.get("Contract_Download_Link").toString() : null);
-                    assignment.setDocusignLink(r.get("Enter_Docusign_Link") != null ? r.get("Enter_Docusign_Link").toString() : null);
-                    assignment.setCashflowDocLink(r.get("Cashflow_Document_Link") != null ? r.get("Cashflow_Document_Link").toString() : null);
-                    assignment.setCurrentWeeklyRent(toBigDecimal(r.get("Current_Weekly_Rent")));
-                    assignment.setRentalYield(toDouble(r.get("Rental_Yield")));
-                    assignment.setRealEstateAgentName(getNestedName(r, "Real_Estate_Agent"));
-
-                    // Conveyancer — name from nested lookup, email via Contacts API
-                    String conveyancerId = getNestedId(r, "Conveyancer");
-                    String conveyancerName = getNestedName(r, "Conveyancer");
-                    assignment.setConveyancerZohoId(conveyancerId);
-                    assignment.setConveyancerName(conveyancerName);
-                    assignment.setConveyancerEmail(fetchContactEmail(conveyancerId, contactEmailCache));
-
-                    assignment.setZohoCreatedAt(r.get("Created_Time") != null ? r.get("Created_Time").toString() : null);
-                    assignment.setZohoModifiedAt(r.get("Modified_Time") != null ? r.get("Modified_Time").toString() : null);
-                    assignment.setSyncedAt(LocalDateTime.now());
-
-                    assignmentRepository.save(assignment);
+                    saveAssignmentRecord(r, zohoAssignmentId, contactEmailCache);
                     count++;
                 } catch (Exception e) {
                     log.error("Error mapping Assignment record {}: {}", r.get("id"), e.getMessage());
@@ -687,16 +592,16 @@ public class ZohoSyncService {
     // -------------------------------------------------------------------------
 
     public void runDataSync() {
-        log.info("Starting data sync (parallel, no R2)");
+        log.info("Starting data sync (no R2)");
+        // Properties must finish first so docs/assignments can validate property existence
+        syncProperties(false, null);
         java.util.concurrent.CompletableFuture<Void> briefs =
                 java.util.concurrent.CompletableFuture.runAsync(() -> syncBuyerBriefs(false, null));
-        java.util.concurrent.CompletableFuture<Void> properties =
-                java.util.concurrent.CompletableFuture.runAsync(() -> syncProperties(false, null));
         java.util.concurrent.CompletableFuture<Void> docs =
                 java.util.concurrent.CompletableFuture.runAsync(() -> syncPropertyDocuments(false, null, true));
         java.util.concurrent.CompletableFuture<Void> clients =
                 java.util.concurrent.CompletableFuture.runAsync(() -> syncClientManagement(false, null));
-        java.util.concurrent.CompletableFuture.allOf(briefs, properties, docs, clients).join();
+        java.util.concurrent.CompletableFuture.allOf(briefs, docs, clients).join();
         log.info("Data sync completed");
 
         // Option B: if data sync found new documents without R2 URLs, upload them immediately in background
@@ -785,6 +690,200 @@ public class ZohoSyncService {
     }
 
     // -------------------------------------------------------------------------
+    // CASCADE DELETE — removes property + all its docs (R2 + DB) + assignments
+    // -------------------------------------------------------------------------
+
+    private void deletePropertyWithCascade(String zohoPropertyId) {
+        List<PropertyDocument> docs = propertyDocumentRepository.findAllByZohoPropertyId(zohoPropertyId);
+        for (PropertyDocument doc : docs) {
+            if (doc.getZohoDocId() != null && doc.getFileName() != null) {
+                r2StorageService.deleteObject(r2StorageService.generateFileKey(doc.getZohoDocId(), doc.getFileName()));
+            }
+        }
+        propertyDocumentRepository.deleteAll(docs);
+
+        List<Assignment> assignments = assignmentRepository.findAllByZohoPropertyId(zohoPropertyId);
+        assignmentRepository.deleteAll(assignments);
+
+        propertyRepository.findByZohoPropertyId(zohoPropertyId).ifPresent(propertyRepository::delete);
+
+        log.info("Cascade deleted property {} ({} docs, {} assignments)", zohoPropertyId, docs.size(), assignments.size());
+    }
+
+    // -------------------------------------------------------------------------
+    // SINGLE-PROPERTY ASSIGNMENT SYNC (used for brand-new properties in delta sync)
+    // -------------------------------------------------------------------------
+
+    @SuppressWarnings("unchecked")
+    private void syncAssignmentsForSingleProperty(String zohoPropertyId) {
+        try {
+            String url = baseUrl + "/Client_Management/search?criteria=(Property:equals:" + zohoPropertyId + ")&per_page=200";
+            ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.GET, new HttpEntity<>(getZohoHeaders()), Map.class);
+            if (response.getStatusCode() != HttpStatus.OK || response.getBody() == null) return;
+            List<Map<String, Object>> records = (List<Map<String, Object>>) response.getBody().get("data");
+            if (records == null || records.isEmpty()) return;
+
+            Map<String, String> contactEmailCache = new HashMap<>();
+            for (Map<String, Object> r : records) {
+                try {
+                    String zohoAssignmentId = r.get("id") != null ? r.get("id").toString() : null;
+                    if (zohoAssignmentId == null) continue;
+                    saveAssignmentRecord(r, zohoAssignmentId, contactEmailCache);
+                } catch (Exception e) {
+                    log.error("Error saving assignment {} for property {}: {}", r.get("id"), zohoPropertyId, e.getMessage());
+                }
+            }
+            log.info("Synced {} assignments for new property {}", records.size(), zohoPropertyId);
+        } catch (Exception e) {
+            log.error("Failed to sync assignments for property {}: {}", zohoPropertyId, e.getMessage());
+        }
+    }
+
+    private void saveAssignmentRecord(Map<String, Object> r, String zohoAssignmentId, Map<String, String> contactEmailCache) {
+        Assignment assignment = assignmentRepository.findByZohoAssignmentId(zohoAssignmentId).orElse(null);
+        boolean isNew = (assignment == null);
+        if (assignment == null) assignment = Assignment.builder().build();
+
+        assignment.setZohoAssignmentId(zohoAssignmentId);
+        assignment.setZohoContactId(getNestedId(r, "Buyer"));
+        assignment.setZohoPropertyId(getNestedId(r, "Property"));
+        assignment.setZohoBriefId(getNestedId(r, "Buyer_Brief"));
+
+        String zohoStatus = r.get("Status") != null ? r.get("Status").toString() : null;
+        assignment.setZohoStatus(zohoStatus);
+
+        if (zohoStatus != null) {
+            notificationService.createNotificationFromStatus(
+                    zohoAssignmentId,
+                    assignment.getZohoContactId(),
+                    assignment.getZohoPropertyId(),
+                    zohoStatus
+            );
+        }
+
+        if (zohoStatus != null) {
+            String zs = zohoStatus.toLowerCase();
+            if (zs.contains("reject") || zs.contains("withdraw")) {
+                assignment.setPortalStatus("REJECTED");
+            } else if (zs.contains("accept") || zs.contains("offer") || zs.contains("contract") || zs.contains("bnp") || zs.contains("finance") || zs.contains("settlement") || zs.contains("done") || zs.contains("tenanted") || zs.contains("psi")) {
+                assignment.setPortalStatus("ACCEPTED");
+            } else if (zs.contains("assigned")) {
+                assignment.setPortalStatus("PENDING");
+            }
+        } else if (isNew) {
+            assignment.setPortalStatus("PENDING");
+        }
+
+        assignment.setJointBuyersName(r.get("Joint_Buyers_Full_Name") != null ? r.get("Joint_Buyers_Full_Name").toString() : null);
+        assignment.setSecondaryBuyerEmail(r.get("Secondary_Buyer_Email") != null ? r.get("Secondary_Buyer_Email").toString() : null);
+        assignment.setFinanceOption(r.get("Finance_Option") != null ? r.get("Finance_Option").toString() : null);
+        assignment.setFinanceStatus(r.get("Finance_Status") != null ? r.get("Finance_Status").toString() : null);
+        assignment.setFinanceDate(r.get("Finance_Date") != null ? r.get("Finance_Date").toString() : null);
+        assignment.setContractStatus(r.get("Contract_Status") != null ? r.get("Contract_Status").toString() : null);
+        assignment.setContractDate(r.get("Contract_Date") != null ? r.get("Contract_Date").toString() : null);
+        assignment.setContractSettlementDate(r.get("Contract_Settlement_Date") != null ? r.get("Contract_Settlement_Date").toString() : null);
+        assignment.setSettlementDate(r.get("Settlement_Date") != null ? r.get("Settlement_Date").toString() : null);
+        assignment.setOfferAmount(toBigDecimal(r.get("Offer_Amount")));
+        assignment.setOfferDate(r.get("Offer_Date") != null ? r.get("Offer_Date").toString() : null);
+        assignment.setPurchasePrice(toBigDecimal(r.get("Purchase_Price")));
+        assignment.setDepositAmount(toBigDecimal(r.get("Deposit_Amount")));
+        assignment.setDepositPercentage(toBigDecimal(r.get("Deposit_Percentage")));
+        assignment.setDepositDueDate(r.get("Deposit_Due_Date") != null ? r.get("Deposit_Due_Date").toString() : null);
+        assignment.setBnpReportLink(r.get("BNP_Report_Download_Link") != null ? r.get("BNP_Report_Download_Link").toString() : null);
+        assignment.setFinanceLetterLink(r.get("Finance_Letter_Download_Link") != null ? r.get("Finance_Letter_Download_Link").toString() : null);
+        assignment.setContractDownloadLink(r.get("Contract_Download_Link") != null ? r.get("Contract_Download_Link").toString() : null);
+        assignment.setDocusignLink(r.get("Enter_Docusign_Link") != null ? r.get("Enter_Docusign_Link").toString() : null);
+        assignment.setCashflowDocLink(r.get("Cashflow_Document_Link") != null ? r.get("Cashflow_Document_Link").toString() : null);
+        assignment.setCurrentWeeklyRent(toBigDecimal(r.get("Current_Weekly_Rent")));
+        assignment.setRentalYield(toDouble(r.get("Rental_Yield")));
+        assignment.setRealEstateAgentName(getNestedName(r, "Real_Estate_Agent"));
+
+        String conveyancerId = getNestedId(r, "Conveyancer");
+        assignment.setConveyancerZohoId(conveyancerId);
+        assignment.setConveyancerName(getNestedName(r, "Conveyancer"));
+        assignment.setConveyancerEmail(fetchContactEmail(conveyancerId, contactEmailCache));
+
+        assignment.setZohoCreatedAt(r.get("Created_Time") != null ? r.get("Created_Time").toString() : null);
+        assignment.setZohoModifiedAt(r.get("Modified_Time") != null ? r.get("Modified_Time").toString() : null);
+        assignment.setSyncedAt(LocalDateTime.now());
+
+        assignmentRepository.save(assignment);
+    }
+
+    // -------------------------------------------------------------------------
+    // SINGLE-PROPERTY DOCUMENT SYNC (used for brand-new properties in delta sync)
+    // -------------------------------------------------------------------------
+
+    @SuppressWarnings("unchecked")
+    private void syncDocumentsForSingleProperty(String zohoPropertyId) {
+        try {
+            String url = baseUrl + "/Property_Documents/search?criteria=(Property:equals:" + zohoPropertyId + ")&per_page=200";
+            ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.GET, new HttpEntity<>(getZohoHeaders()), Map.class);
+            if (response.getStatusCode() != HttpStatus.OK || response.getBody() == null) return;
+            List<Map<String, Object>> records = (List<Map<String, Object>>) response.getBody().get("data");
+            if (records == null || records.isEmpty()) return;
+
+            Set<String> allowedPropertyIds = getPortalClientPropertyIds();
+            for (Map<String, Object> r : records) {
+                try {
+                    String zohoDocId = r.get("id") != null ? r.get("id").toString() : null;
+                    if (zohoDocId == null) continue;
+                    savePropertyDocumentRecord(r, zohoDocId, allowedPropertyIds, false);
+                } catch (Exception e) {
+                    log.error("Error saving document {} for property {}: {}", r.get("id"), zohoPropertyId, e.getMessage());
+                }
+            }
+            log.info("Re-synced {} documents for property {} after Rejected→active", records.size(), zohoPropertyId);
+        } catch (Exception e) {
+            log.error("Failed to re-sync documents for property {}: {}", zohoPropertyId, e.getMessage());
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void savePropertyDocumentRecord(Map<String, Object> r, String zohoDocId, Set<String> allowedPropertyIds, boolean skipR2) {
+        PropertyDocument doc = propertyDocumentRepository.findByZohoDocId(zohoDocId)
+                .orElse(PropertyDocument.builder().build());
+
+        doc.setZohoDocId(zohoDocId);
+        doc.setZohoPropertyId(getNestedId(r, "Property"));
+        doc.setDocumentType(r.get("Document_Type") != null ? r.get("Document_Type").toString().trim() : null);
+        doc.setCaption(r.get("Document_Caption") != null ? r.get("Document_Caption").toString() : null);
+        doc.setDownloadLink(r.get("Download_Link") != null ? r.get("Download_Link").toString() : null);
+        doc.setPropertyVideoUrl(r.get("Property_Video_URL") != null ? r.get("Property_Video_URL").toString() : null);
+
+        Object uploadObj = r.get("Document_Upload");
+        if (uploadObj instanceof List) {
+            List<Map<String, Object>> uploads = (List<Map<String, Object>>) uploadObj;
+            if (!uploads.isEmpty()) {
+                Map<String, Object> first = uploads.get(0);
+                doc.setFileName(first.get("file_Name") != null ? first.get("file_Name").toString() : null);
+                doc.setFileExtension(first.get("extn") != null ? first.get("extn").toString() : null);
+                doc.setFileSizeBytes(first.get("original_Size_Byte") != null ? first.get("original_Size_Byte").toString() : null);
+                Object entityIdObj = first.get("entity_Id");
+                Object attachmentIdObj = first.get("attachment_Id");
+                if (entityIdObj != null && attachmentIdObj != null) {
+                    doc.setCrmDownloadUrl(baseUrl + "/Property_Documents/" + entityIdObj + "/attachments/" + attachmentIdObj);
+                }
+            }
+        }
+
+        if (!skipR2) {
+            String propId = doc.getZohoPropertyId();
+            if (!isVideoDoc(doc) && allowedPropertyIds.contains(propId)) {
+                String fileKey = r2StorageService.generateFileKey(zohoDocId, doc.getFileName());
+                String contentType = r2StorageService.getContentType(doc.getFileExtension());
+                if (r2StorageService.fileExists(fileKey)) {
+                    doc.setR2Url(r2StorageService.getPublicUrl(fileKey));
+                } else {
+                    doc.setR2Url(tryUploadWithFallback(doc, fileKey, contentType));
+                }
+            }
+        }
+
+        propertyDocumentRepository.save(doc);
+    }
+
+    // -------------------------------------------------------------------------
     // R2 ELIGIBILITY CHECK
     // -------------------------------------------------------------------------
 
@@ -792,7 +891,8 @@ public class ZohoSyncService {
 
     /** Videos are served via external URLs (YouTube/WorkDrive), never uploaded to R2. */
     private boolean isVideoDoc(PropertyDocument doc) {
-        if ("VIDEO".equals(doc.getDocumentType())) return true;
+        String type = doc.getDocumentType();
+        if ("Property Video".equals(type) || "Property Video Link".equals(type) || "VIDEO".equals(type)) return true;
         String ext = doc.getFileExtension();
         return ext != null && VIDEO_EXTENSIONS.contains(ext.toLowerCase());
     }

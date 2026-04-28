@@ -313,11 +313,11 @@ const BuyerBriefView = ({ brief }) => {
 // Purchased = zohoStatus is "Contract Signed" or any later stage:
 // Contract Signed → BNP Done → Contract Unconditional → Tenanted → Done
 const PURCHASED_STATUSES = new Set([
-  "contract signed",
-  "bnp done",
   "contract unconditional",
   "tenanted",
   "done",
+  "settlement done",
+  "psi",
 ]);
 const isPurchasedItem = (item) => {
   if (item.portalStatus === "PURCHASED") return true;

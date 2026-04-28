@@ -66,6 +66,7 @@ const AdminPropertyDetail = () => {
   const [activeIsVideo, setActiveIsVideo] = useState(false);
   const [notesDraft, setNotesDraft] = useState("");
   const [notesSaving, setNotesSaving] = useState(false);
+  const [activeExternalVideoIndex, setActiveExternalVideoIndex] = useState(0);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -193,23 +194,7 @@ const AdminPropertyDetail = () => {
     return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
   };
 
-  const TYPE_LABEL = {
-    PROPERTY_IMAGE: "Property Image",
-    DUE_DILIGENCE_IMAGE: "Due Diligence Image",
-    VIDEO: "Property Video",
-    REGION_REPORT: "Suburb / Region Report",
-    CORE_LOGIC: "Core Logic Document",
-    CMA: "CMA Document",
-    CASHFLOW: "Cash Flow Calculator",
-    INSURANCE: "Insurance Estimate",
-    CONTRACT: "Contract Document",
-    STASH: "Stash Document",
-    REPORT: "Report",
-    FINANCIAL: "Financial Document",
-    IMAGE: "Property Image",
-    DOCUMENT: "Document",
-  };
-  const typeLabel = (t) => TYPE_LABEL[t] || t || "Document";
+  const typeLabel = (t) => t || "Document";
 
   const handleSaveNotes = async () => {
     if (!assignment?.id) {
@@ -278,7 +263,7 @@ const AdminPropertyDetail = () => {
                         : "bg-blue-500/10 text-blue-400 border-blue-500/30"
                 }`}
               >
-                {assignment.portalStatus || "PENDING"}
+                {assignment.zohoStatus || (assignment.portalStatus === "PENDING" ? "ASSIGNED" : assignment.portalStatus)}
               </span>
             </div>
           </div>
@@ -840,52 +825,109 @@ const AdminPropertyDetail = () => {
                     <Play size={12} /> Video Walkthrough
                   </p>
                   <div className="space-y-4">
-                    {documents.externalVideos.map((url, idx) => {
-                      const embedUrl = url.includes("youtube.com/watch?v=")
-                        ? url.replace("watch?v=", "embed/")
-                        : url.includes("youtu.be/")
-                          ? "https://www.youtube.com/embed/" +
-                            url.split("youtu.be/")[1]
-                          : null;
-                      return embedUrl ? (
-                        <div
-                          key={idx}
-                          className="aspect-video rounded-2xl overflow-hidden border border-teal/20 bg-navy"
-                        >
-                          <iframe
-                            width="100%"
-                            height="100%"
-                            src={embedUrl}
-                            title={`Video ${idx + 1}`}
-                            frameBorder="0"
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                            allowFullScreen
-                          />
+                    {(() => {
+                      const getEmbedInfo = (vid) => {
+                        if (!vid || !vid.url) return null;
+                        const raw = vid.url.trim();
+                        try {
+                          const u = new URL(raw);
+                          let videoId = null;
+                          if (u.hostname.includes("youtube.com")) {
+                            videoId = u.searchParams.get("v");
+                            if (!videoId) {
+                              const seg = u.pathname.split("/").filter(Boolean);
+                              if (seg.length >= 2 && ["shorts", "live", "embed", "v"].includes(seg[0])) {
+                                videoId = seg[1];
+                              }
+                            }
+                          } else if (u.hostname === "youtu.be") {
+                            videoId = u.pathname.slice(1);
+                          }
+                          if (videoId) {
+                            return {
+                              embedUrl: `https://www.youtube.com/embed/${videoId}`,
+                              thumbnailUrl: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
+                              caption: vid.caption
+                            };
+                          }
+                        } catch {}
+                        return { rawUrl: raw, caption: vid.caption };
+                      };
+
+                      const videoInfos = documents.externalVideos.map(getEmbedInfo).filter(Boolean);
+                      if (videoInfos.length === 0) return null;
+
+                      const activeInfo = videoInfos[activeExternalVideoIndex] || videoInfos[0];
+
+                      return (
+                        <div className="flex flex-col gap-4">
+                          {activeInfo.embedUrl ? (
+                            <div className="space-y-3">
+                              <div className="aspect-video rounded-2xl overflow-hidden border border-teal/20 bg-navy">
+                                <iframe
+                                  width="100%"
+                                  height="100%"
+                                  src={activeInfo.embedUrl}
+                                  title="Active Video"
+                                  frameBorder="0"
+                                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                  allowFullScreen
+                                />
+                              </div>
+                              {activeInfo.caption && (
+                                <p className="text-sm font-medium text-white px-1">{activeInfo.caption}</p>
+                              )}
+                            </div>
+                          ) : (
+                            <a
+                              href={activeInfo.rawUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-3 p-4 bg-navy border border-teal/20 rounded-2xl hover:border-teal/50 transition-all"
+                            >
+                              <div className="w-10 h-10 rounded-xl bg-teal/10 flex items-center justify-center text-teal shrink-0">
+                                <Play size={18} />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-bold text-white">
+                                  {activeInfo.caption || "Property Video Link"}
+                                </p>
+                                <p className="text-xs text-teal truncate">
+                                  {activeInfo.rawUrl}
+                                </p>
+                              </div>
+                              <ExternalLink size={16} className="text-gray-500 shrink-0" />
+                            </a>
+                          )}
+
+                          {/* Thumbnails row */}
+                          {videoInfos.length > 1 && (
+                            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+                              {videoInfos.map((info, idx) => (
+                                <button
+                                  key={idx}
+                                  onClick={() => setActiveExternalVideoIndex(idx)}
+                                  className={`relative shrink-0 w-32 aspect-video rounded-xl overflow-hidden border-2 transition-all ${activeExternalVideoIndex === idx ? 'border-teal' : 'border-transparent opacity-60 hover:opacity-100'}`}
+                                >
+                                  {info.thumbnailUrl ? (
+                                    <>
+                                      <img src={info.thumbnailUrl} alt={`Video ${idx+1}`} className="w-full h-full object-cover" />
+                                      <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                                        <Play size={20} className="text-white drop-shadow-md" />
+                                      </div>
+                                    </>
+                                  ) : (
+                                    <div className="w-full h-full bg-navy flex items-center justify-center border border-teal/20">
+                                      <Play size={20} className="text-teal" />
+                                    </div>
+                                  )}
+                                </button>
+                              ))}
+                            </div>
+                          )}
                         </div>
-                      ) : (
-                        <a
-                          key={idx}
-                          href={url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-3 p-4 bg-navy border border-teal/20 rounded-2xl hover:border-teal/50 transition-all"
-                        >
-                          <div className="w-10 h-10 rounded-xl bg-teal/10 flex items-center justify-center text-teal shrink-0">
-                            <Play size={18} />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-bold text-white">
-                              Property Video Link
-                            </p>
-                            <p className="text-xs text-teal truncate">{url}</p>
-                          </div>
-                          <ExternalLink
-                            size={16}
-                            className="text-gray-500 shrink-0"
-                          />
-                        </a>
                       );
-                    })}
+                    })()}
                   </div>
                 </div>
               )}
