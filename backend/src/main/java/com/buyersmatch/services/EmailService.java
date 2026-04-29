@@ -27,6 +27,9 @@ public class EmailService {
   @Value("${admin.notify.email:admin@example.com}")
   private String adminNotifyEmail;
 
+  @Value("${keep.alive.alert.email:boltblazers.tech@gmail.com}")
+  private String keepAliveAlertEmail;
+
   // -------------------------------------------------------------------------
   // ONBOARDING EMAIL
   // -------------------------------------------------------------------------
@@ -91,8 +94,57 @@ public class EmailService {
   }
 
   // -------------------------------------------------------------------------
+  // KEEP-ALIVE ALERT
+  // -------------------------------------------------------------------------
+
+  public void sendKeepAliveAlert(String errorMessage) {
+    try {
+      MimeMessage message = mailSender.createMimeMessage();
+      MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+      helper.setFrom(fromEmail, fromName);
+      helper.setTo(keepAliveAlertEmail);
+      helper.setSubject("🚨 Buyers Match Backend is DOWN");
+      helper.setText(buildKeepAliveAlertHtml(errorMessage), true);
+      mailSender.send(message);
+      log.warn("Keep-alive alert email sent to {}", keepAliveAlertEmail);
+    } catch (Exception e) {
+      log.error("Failed to send keep-alive alert: {}", e.getMessage());
+    }
+  }
+
+  // -------------------------------------------------------------------------
   // TEMPLATES
   // -------------------------------------------------------------------------
+
+  private String buildKeepAliveAlertHtml(String errorMessage) {
+    String time = java.time.LocalDateTime.now().toString().replace("T", " ").substring(0, 19);
+    return """
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="UTF-8"></head>
+        <body style="font-family:Arial,sans-serif;background:#f1f5f9;margin:0;padding:0;">
+          <div style="max-width:600px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+            <div style="background:#7f1d1d;padding:36px 32px;text-align:center;">
+              <h1 style="color:#fca5a5;margin:0;font-size:26px;letter-spacing:-0.5px;">⚠️ Backend Alert</h1>
+              <p style="color:#fecaca;margin:6px 0 0;font-size:14px;">Buyers Match Portal</p>
+            </div>
+            <div style="padding:40px 32px;">
+              <h2 style="color:#0d2240;margin:0 0 12px;font-size:20px;">Backend Health Check Failed</h2>
+              <p style="color:#475569;line-height:1.7;margin:0 0 24px;">The keep-alive ping to the backend returned an error. The service may be down or unreachable.</p>
+              <div style="background:#fff1f2;border:1px solid #fecdd3;border-radius:10px;padding:20px;margin:0 0 24px;">
+                <p style="margin:0 0 8px;color:#be123c;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;">Error Details</p>
+                <p style="margin:0;color:#0d2240;font-size:14px;font-family:monospace;word-break:break-all;">%s</p>
+              </div>
+              <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:16px 20px;">
+                <p style="margin:0;color:#64748b;font-size:13px;">⏰ Detected at: <strong>%s UTC</strong></p>
+              </div>
+              <p style="color:#94a3b8;font-size:12px;text-align:center;margin:24px 0 0;">You will not receive another alert for 30 minutes if the issue persists.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+        """.formatted(errorMessage != null ? errorMessage : "Unknown error", time);
+  }
 
   private String buildClientActionHtml(String clientName, String propertyAddress, String action, String remark) {
     boolean isAccept = "ACCEPT".equalsIgnoreCase(action);

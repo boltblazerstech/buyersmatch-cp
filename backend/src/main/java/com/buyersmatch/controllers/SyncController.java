@@ -82,33 +82,41 @@ public class SyncController {
     @PostMapping("/buyer-briefs")
     public ResponseEntity<Map<String, Object>> syncBuyerBriefs(@RequestParam(required = false) Integer limit) {
         log.info("BuyerBriefs module sync triggered via API, limit={}", limit);
-        buyerBriefRepository.deleteAll();
-        zohoSyncService.syncBuyerBriefs(true, limit);
-        return ResponseEntity.ok(Map.of("success", true, "message", "BuyerBriefs sync completed" + (limit != null ? " (limit " + limit + ")" : "")));
+        CompletableFuture.runAsync(() -> {
+            buyerBriefRepository.deleteAll();
+            zohoSyncService.syncBuyerBriefs(true, limit);
+        });
+        return ResponseEntity.ok(Map.of("success", true, "message", "BuyerBriefs sync started in background" + (limit != null ? " (limit " + limit + ")" : "")));
     }
 
     @PostMapping("/properties")
     public ResponseEntity<Map<String, Object>> syncProperties(@RequestParam(required = false) Integer limit) {
         log.info("Properties module sync triggered via API, limit={}", limit);
-        propertyRepository.deleteAll();
-        zohoSyncService.syncProperties(true, limit);
-        return ResponseEntity.ok(Map.of("success", true, "message", "Properties sync completed" + (limit != null ? " (limit " + limit + ")" : "")));
+        CompletableFuture.runAsync(() -> {
+            propertyRepository.deleteAll();
+            zohoSyncService.syncProperties(true, limit);
+        });
+        return ResponseEntity.ok(Map.of("success", true, "message", "Properties sync started in background" + (limit != null ? " (limit " + limit + ")" : "")));
     }
 
     @PostMapping("/property-documents")
     public ResponseEntity<Map<String, Object>> syncPropertyDocuments(@RequestParam(required = false) Integer limit) {
         log.info("PropertyDocuments module sync triggered via API, limit={}", limit);
-        propertyDocumentRepository.deleteAll();
-        zohoSyncService.syncPropertyDocuments(true, limit);
-        return ResponseEntity.ok(Map.of("success", true, "message", "PropertyDocuments sync completed" + (limit != null ? " (limit " + limit + ")" : "")));
+        CompletableFuture.runAsync(() -> {
+            propertyDocumentRepository.deleteAll();
+            zohoSyncService.syncPropertyDocuments(true, limit);
+        });
+        return ResponseEntity.ok(Map.of("success", true, "message", "PropertyDocuments sync started in background" + (limit != null ? " (limit " + limit + ")" : "")));
     }
 
     @PostMapping("/client-management")
     public ResponseEntity<Map<String, Object>> syncClientManagement(@RequestParam(required = false) Integer limit) {
         log.info("ClientManagement module sync triggered via API, limit={}", limit);
-        assignmentRepository.deleteAll();
-        zohoSyncService.syncClientManagement(true, limit);
-        return ResponseEntity.ok(Map.of("success", true, "message", "ClientManagement sync completed" + (limit != null ? " (limit " + limit + ")" : "")));
+        CompletableFuture.runAsync(() -> {
+            assignmentRepository.deleteAll();
+            zohoSyncService.syncClientManagement(true, limit);
+        });
+        return ResponseEntity.ok(Map.of("success", true, "message", "ClientManagement sync started in background" + (limit != null ? " (limit " + limit + ")" : "")));
     }
 
     @PostMapping("/documents/missing-r2")
