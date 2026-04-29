@@ -773,7 +773,8 @@ const PropertyDetail = () => {
                           "tenanted",
                           "done",
                           "settlement done",
-                          "psi"
+                          "psi",
+                          "social media & gift completed"
                         ].includes((assignment?.zohoStatus || "").toLowerCase().trim());
                       const cellOpacity =
                         state === "unreachable" && !isTerminal

@@ -1,0 +1,87 @@
+name: Deploy Backend to Cloud Run
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-deploy.yml'
+
+env:
+  GCP_REGION: ${{ secrets.GCP_REGION }}
+  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REPO_NAME: buyers-match
+  IMAGE_NAME: api
+
+jobs:
+  deploy:
+    name: Build & Deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.GCP_REGION }}-docker.pkg.dev --quiet
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
+            -t ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:latest \
+            ./backend
+
+      - name: Push Docker image
+        run: |
+          docker push ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          docker push ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:latest
+
+      - name: Deploy to Cloud Run
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: buyers-match-api
+          region: ${{ env.GCP_REGION }}
+          image: ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          flags: >-
+            --allow-unauthenticated
+            --port=8080
+            --memory=512Mi
+            --cpu=1
+            --min-instances=0
+            --max-instances=2
+            --timeout=60
+          env_vars: |-
+            DB_URL=${{ secrets.DB_URL }},
+            DB_USERNAME=${{ secrets.DB_USERNAME }},
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }},
+            JWT_SECRET=${{ secrets.JWT_SECRET }},
+            ZOHO_CLIENT_ID=${{ secrets.ZOHO_CLIENT_ID }},
+            ZOHO_CLIENT_SECRET=${{ secrets.ZOHO_CLIENT_SECRET }},
+            ZOHO_REFRESH_TOKEN=${{ secrets.ZOHO_REFRESH_TOKEN }},
+            FRONTEND_URL=${{ secrets.FRONTEND_URL }},
+            BREVO_API_KEY=${{ secrets.BREVO_API_KEY }},
+            BREVO_FROM_EMAIL=${{ secrets.BREVO_FROM_EMAIL }},
+            MAIL_FROM_NAME=${{ secrets.MAIL_FROM_NAME }},
+            ADMIN_NOTIFY_EMAIL=${{ secrets.ADMIN_NOTIFY_EMAIL }},
+            R2_ACCOUNT_ID=${{ secrets.R2_ACCOUNT_ID }},
+            R2_ACCESS_KEY=${{ secrets.R2_ACCESS_KEY }},
+            R2_SECRET_KEY=${{ secrets.R2_SECRET_KEY }},
+            R2_BUCKET_NAME=${{ secrets.R2_BUCKET_NAME }},
+            R2_PUBLIC_URL=${{ secrets.R2_PUBLIC_URL }},
+            APP_PUBLIC_URL=${{ secrets.APP_PUBLIC_URL }},
+            KEEP_ALIVE_ALERT_EMAIL=${{ secrets.KEEP_ALIVE_ALERT_EMAIL }}
+
+      - name: Show deployed URL
+        run: echo "Deployed to $(gcloud run services describe buyers-match-api --region=${{ env.GCP_REGION }} --format='value(status.url)')"

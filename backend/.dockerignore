@@ -1,0 +1,12 @@
+.env
+.env.example
+target/
+*.rar
+zoho-api-data/
+logs.json
+ContactsRecord.json
+clientManagementRecord.json
+API.md
+.git/
+.gitignore
+.vscode/
