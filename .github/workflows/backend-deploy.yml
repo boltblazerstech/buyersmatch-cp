@@ -51,7 +51,7 @@ jobs:
       - name: Deploy to Cloud Run
         uses: google-github-actions/deploy-cloudrun@v2
         with:
-          service: buyers-match-api
+          service: buyersmatch-cp
           region: ${{ env.GCP_REGION }}
           image: ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
           flags: >-
@@ -61,7 +61,7 @@ jobs:
             --cpu=1
             --min-instances=0
             --max-instances=2
-            --timeout=60
+            --timeout=1200
           env_vars: |-
             DB_URL=${{ secrets.DB_URL }},
             DB_USERNAME=${{ secrets.DB_USERNAME }},
