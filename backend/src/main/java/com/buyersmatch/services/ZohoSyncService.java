@@ -593,11 +593,15 @@ public class ZohoSyncService {
 
     public void runDataSync() {
         log.info("Starting data sync (no R2)");
-        // Sequential — avoids fork-join pool starvation on single-CPU Cloud Run
+        // Properties first — docs/assignments reference property IDs
         syncProperties(false, null);
-        syncBuyerBriefs(false, null);
-        syncPropertyDocuments(true, null, true);
-        syncClientManagement(false, null);
+        java.util.concurrent.CompletableFuture<Void> briefs =
+                java.util.concurrent.CompletableFuture.runAsync(() -> syncBuyerBriefs(false, null));
+        java.util.concurrent.CompletableFuture<Void> docs =
+                java.util.concurrent.CompletableFuture.runAsync(() -> syncPropertyDocuments(true, null, true));
+        java.util.concurrent.CompletableFuture<Void> clients =
+                java.util.concurrent.CompletableFuture.runAsync(() -> syncClientManagement(false, null));
+        java.util.concurrent.CompletableFuture.allOf(briefs, docs, clients).join();
         updateSyncState("DataSync", false);
         log.info("Data sync completed");
 

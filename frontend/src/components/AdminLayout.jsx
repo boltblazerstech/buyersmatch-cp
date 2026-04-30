@@ -205,8 +205,9 @@ const AdminLayout = ({ children, title }) => {
     return () => clearInterval(id);
   }, []);
 
-  // DataSync state is stamped by the backend only after ALL 4 modules finish
-  const dataLastSync = syncStatus["DataSync"] ?? null;
+  // Data last sync = most recent across the 4 text modules
+  const dataModules = ["BuyerBriefs", "Properties", "PropertyDocuments", "ClientManagement"];
+  const dataLastSync = dataModules.map(m => syncStatus[m]).filter(Boolean).sort().at(-1) ?? null;
 
   const handleLogout = async () => {
     await adminLogout();
@@ -252,7 +253,7 @@ const AdminLayout = ({ children, title }) => {
             colorClass="bg-teal/10 border-teal/30 text-teal"
             activeColorClass="hover:bg-teal hover:text-navy"
             lastSyncedAt={dataLastSync}
-            watchModules={["DataSync"]}
+            watchModules={["BuyerBriefs", "Properties", "PropertyDocuments", "ClientManagement"]}
             logModules={["BuyerBriefs", "Properties", "PropertyDocuments", "ClientManagement"]}
             onDone={loadSyncStatus}
           />

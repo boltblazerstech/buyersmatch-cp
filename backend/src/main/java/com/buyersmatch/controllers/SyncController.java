@@ -54,15 +54,15 @@ public class SyncController {
     @PostMapping("/data")
     public ResponseEntity<Map<String, Object>> dataSync() {
         log.info("Data sync triggered via API");
-        zohoSyncService.runDataSync();
-        return ResponseEntity.ok(Map.of("success", true, "message", "Data sync completed"));
+        CompletableFuture.runAsync(zohoSyncService::runDataSync);
+        return ResponseEntity.ok(Map.of("success", true, "message", "Data sync started in background"));
     }
 
     @PostMapping("/media")
     public ResponseEntity<Map<String, Object>> mediaSync() {
         log.info("Media sync triggered via API");
-        zohoSyncService.runMediaSync();
-        return ResponseEntity.ok(Map.of("success", true, "message", "Media sync completed"));
+        CompletableFuture.runAsync(zohoSyncService::runMediaSync);
+        return ResponseEntity.ok(Map.of("success", true, "message", "Media sync started in background"));
     }
 
     @PostMapping("/delta")
