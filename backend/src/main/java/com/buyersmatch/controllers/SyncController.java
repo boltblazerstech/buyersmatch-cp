@@ -9,6 +9,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.concurrent.CompletableFuture;
 
 import java.util.List;
@@ -76,7 +79,18 @@ public class SyncController {
 
     @GetMapping("/logs")
     public ResponseEntity<Map<String, Object>> syncLogs() {
-        return ResponseEntity.ok(Map.of("success", true, "data", syncLogRepository.findAll()));
+        return ResponseEntity.ok(Map.of("success", true, "data", syncLogRepository.findTop10ByOrderByStartedAtDesc()));
+    }
+
+    @GetMapping("/logs/recent")
+    public ResponseEntity<Map<String, Object>> recentSyncLogs(
+            @RequestParam List<String> modules,
+            @RequestParam(required = false) Long since) {
+        LocalDateTime after = since != null
+                ? Instant.ofEpochMilli(since).atZone(ZoneId.of("UTC")).toLocalDateTime()
+                : LocalDateTime.now().minusHours(1);
+        List<?> logs = syncLogRepository.findByModuleInAndStartedAtAfterOrderByStartedAtDesc(modules, after);
+        return ResponseEntity.ok(Map.of("success", true, "data", logs));
     }
 
     @PostMapping("/buyer-briefs")

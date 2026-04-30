@@ -203,6 +203,16 @@ export const triggerSync = async (module = 'full') => {
   return data;
 };
 
+/** GET /api/admin/sync/logs/recent?modules=A&modules=B&since=<epochMs> */
+export const getSyncLogs = async (modules, sinceMs) => {
+  if (USE_MOCK) { await delay(); return []; }
+  const params = new URLSearchParams();
+  modules.forEach(m => params.append('modules', m));
+  if (sinceMs) params.append('since', sinceMs);
+  const { data } = await adminApi.get(`/api/admin/sync/logs/recent?${params.toString()}`);
+  return data.data ?? [];
+};
+
 // ─── Notifications (no backend endpoint — mock-only for now) ──────
 export const getNotifications = async (userId) => {
   return mockNotifications.filter(n => n.userId === userId)

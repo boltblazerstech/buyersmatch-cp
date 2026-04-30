@@ -442,22 +442,23 @@ const Dashboard = () => {
   };
 
   const getStatusBadge = (item) => {
+    const zohoLabel = item.assignment?.zohoStatus;
     if (isPurchasedItem(item))
-      return { cls: "bg-gold text-navy", label: "PURCHASED" };
+      return { cls: "bg-gold text-navy", label: zohoLabel || "Purchased" };
     switch (item.portalStatus) {
       case "ACCEPTED":
-        return { cls: "bg-teal text-navy", label: "ACCEPTED" };
+        return { cls: "bg-teal text-navy", label: zohoLabel || "Accepted" };
       case "REJECTED":
-        return { cls: "bg-red-500 text-white", label: "REJECTED" };
+        return { cls: "bg-red-500 text-white", label: zohoLabel || "Rejected" };
       case "PENDING":
         return {
           cls: "bg-blue-500/20 text-blue-300 border border-blue-500/30",
-          label: "ASSIGNED",
+          label: zohoLabel || "Assigned",
         };
       default:
         return {
           cls: "bg-gray-500/20 text-gray-400",
-          label: item.portalStatus || "—",
+          label: zohoLabel || item.portalStatus || "—",
         };
     }
   };
@@ -887,7 +888,7 @@ const Dashboard = () => {
                               const b = getStatusBadge(item);
                               return (
                                 <span
-                                  className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${b.cls}`}
+                                  className={`px-2 py-1 rounded-full text-[10px] font-bold tracking-wide whitespace-nowrap ${b.cls}`}
                                 >
                                   {b.label}
                                 </span>

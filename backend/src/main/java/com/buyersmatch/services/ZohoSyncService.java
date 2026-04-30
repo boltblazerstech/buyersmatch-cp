@@ -930,6 +930,7 @@ public class ZohoSyncService {
     // -------------------------------------------------------------------------
 
     public int uploadMissingR2Documents() {
+        SyncLog syncLog = startLog("Media", "MANUAL");
         // Docs missing R2 that have a CRM attachment URL
         List<PropertyDocument> missingCrm = propertyDocumentRepository
                 .findAllByR2UrlIsNullAndCrmDownloadUrlIsNotNull();
@@ -983,6 +984,7 @@ public class ZohoSyncService {
 
         log.info("uploadMissingR2Documents completed: {}/{} uploaded", uploaded, missing.size());
         updateSyncState("Media", false);
+        endLog(syncLog, uploaded, "SUCCESS");
         return uploaded;
     }
 

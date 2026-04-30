@@ -68,6 +68,7 @@ const PropertyDetail = () => {
   const [loading, setLoading] = useState(true);
   const [activeImage, setActiveImage] = useState(null);
   const [activeIsVideo, setActiveIsVideo] = useState(false);
+  const [activeIsYoutube, setActiveIsYoutube] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(null); // 'ACCEPT' or 'REJECT'
   const [remark, setRemark] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
@@ -91,10 +92,25 @@ const PropertyDetail = () => {
         setDocuments(docsData);
         const firstImg = docsData.propertyImages?.[0];
         const firstVid = docsData.videos?.[0];
-        const first = firstImg || firstVid;
-        if (first) {
-          setActiveImage(first.url);
-          setActiveIsVideo(!firstImg);
+        const firstYt = docsData.externalVideos?.[0];
+        if (firstImg) {
+          setActiveImage(firstImg.url);
+          setActiveIsVideo(false);
+          setActiveIsYoutube(false);
+        } else if (firstVid) {
+          setActiveImage(firstVid.url);
+          setActiveIsVideo(true);
+          setActiveIsYoutube(false);
+        } else if (firstYt?.url) {
+          try {
+            const u = new URL(firstYt.url.trim());
+            const id = u.searchParams.get("v") || (u.hostname === "youtu.be" ? u.pathname.slice(1) : null);
+            if (id) {
+              setActiveImage(`https://www.youtube.com/embed/${id}`);
+              setActiveIsVideo(false);
+              setActiveIsYoutube(true);
+            }
+          } catch {}
         }
 
         // API now returns { assignments, briefs } — find the matching assignment
@@ -360,22 +376,55 @@ const PropertyDetail = () => {
         )}
 
         <div className="space-y-12">
-          {/* 1. Property Gallery — images + videos */}
+          {/* 1. Property Gallery — images + YouTube videos */}
           {(documents.propertyImages.length > 0 ||
-            documents.videos.length > 0) &&
+            documents.videos.length > 0 ||
+            documents.externalVideos.length > 0) &&
             (() => {
+              const parseYt = (vid) => {
+                if (!vid?.url) return null;
+                try {
+                  const u = new URL(vid.url.trim());
+                  let id = null;
+                  if (u.hostname.includes("youtube.com")) {
+                    id = u.searchParams.get("v");
+                    if (!id) {
+                      const seg = u.pathname.split("/").filter(Boolean);
+                      if (seg.length >= 2 && ["shorts","live","embed","v"].includes(seg[0])) id = seg[1];
+                    }
+                  } else if (u.hostname === "youtu.be") {
+                    id = u.pathname.slice(1);
+                  }
+                  if (!id) return null;
+                  return {
+                    embedUrl: `https://www.youtube.com/embed/${id}`,
+                    thumbnailUrl: `https://img.youtube.com/vi/${id}/hqdefault.jpg`,
+                    caption: vid.caption,
+                    mediaType: "youtube",
+                  };
+                } catch { return null; }
+              };
+
               const galleryItems = [
-                ...documents.propertyImages.map((d) => ({
-                  ...d,
-                  mediaType: "image",
-                })),
+                ...documents.propertyImages.map((d) => ({ ...d, mediaType: "image" })),
                 ...documents.videos.map((d) => ({ ...d, mediaType: "video" })),
+                ...documents.externalVideos.map(parseYt).filter(Boolean),
               ];
+
               return (
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   {/* Main viewer */}
                   <div className="md:col-span-3 aspect-[4/3] rounded-3xl overflow-hidden border border-teal/20 bg-navy">
-                    {activeIsVideo ? (
+                    {activeIsYoutube ? (
+                      <iframe
+                        key={activeImage}
+                        src={activeImage}
+                        className="w-full h-full"
+                        frameBorder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      />
+                    ) : activeIsVideo ? (
                       <video
                         key={activeImage}
                         controls
@@ -396,17 +445,32 @@ const PropertyDetail = () => {
                   {/* Thumbnails */}
                   <div className="flex md:flex-col gap-4 overflow-x-auto md:overflow-y-auto max-h-[500px] scrollbar-hide">
                     {galleryItems.map((item, idx) => {
-                      const isActive = activeImage === item.url;
+                      const isActive = item.mediaType === "youtube"
+                        ? activeImage === item.embedUrl
+                        : activeImage === item.url;
                       return (
                         <button
                           key={idx}
                           onClick={() => {
-                            setActiveImage(item.url);
-                            setActiveIsVideo(item.mediaType === "video");
+                            if (item.mediaType === "youtube") {
+                              setActiveImage(item.embedUrl);
+                              setActiveIsVideo(false);
+                              setActiveIsYoutube(true);
+                            } else {
+                              setActiveImage(item.url);
+                              setActiveIsVideo(item.mediaType === "video");
+                              setActiveIsYoutube(false);
+                            }
                           }}
                           className={`relative flex-shrink-0 w-24 h-24 md:w-full md:h-32 rounded-2xl overflow-hidden border-2 transition-all ${isActive ? "border-teal scale-95" : "border-transparent opacity-50 hover:opacity-100"}`}
                         >
-                          {item.mediaType === "video" ? (
+                          {item.mediaType === "youtube" ? (
+                            <img
+                              src={item.thumbnailUrl}
+                              alt={item.caption || "Video"}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : item.mediaType === "video" ? (
                             <video
                               src={item.url}
                               muted
@@ -421,14 +485,10 @@ const PropertyDetail = () => {
                               referrerPolicy="no-referrer"
                             />
                           )}
-                          {item.mediaType === "video" && (
+                          {(item.mediaType === "video" || item.mediaType === "youtube") && (
                             <div className="absolute inset-0 flex items-center justify-center bg-black/30">
                               <div className="w-8 h-8 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                                <Play
-                                  size={14}
-                                  className="text-white ml-0.5"
-                                  fill="white"
-                                />
+                                <Play size={14} className="text-white ml-0.5" fill="white" />
                               </div>
                             </div>
                           )}
@@ -1007,144 +1067,6 @@ const PropertyDetail = () => {
                   </h3>
                 </div>
 
-                {/* ── YouTube Video Walkthrough ── */}
-                {documents.externalVideos.length > 0 && (
-                  <div className="space-y-4">
-                    <p className="text-[10px] font-bold text-teal uppercase tracking-widest flex items-center gap-2">
-                      <Play size={12} /> Video Walkthrough
-                    </p>
-                    <div className="space-y-4">
-                      {(() => {
-                        const getEmbedInfo = (vid) => {
-                          if (!vid || !vid.url) return null;
-                          const raw = vid.url.trim();
-                          try {
-                            const u = new URL(raw);
-                            let videoId = null;
-                            if (u.hostname.includes("youtube.com")) {
-                              videoId = u.searchParams.get("v");
-                              if (!videoId) {
-                                const seg = u.pathname
-                                  .split("/")
-                                  .filter(Boolean);
-                                if (
-                                  seg.length >= 2 &&
-                                  ["shorts", "live", "embed", "v"].includes(
-                                    seg[0],
-                                  )
-                                ) {
-                                  videoId = seg[1];
-                                }
-                              }
-                            } else if (u.hostname === "youtu.be") {
-                              videoId = u.pathname.slice(1);
-                            }
-                            if (videoId) {
-                              return {
-                                embedUrl: `https://www.youtube.com/embed/${videoId}`,
-                                thumbnailUrl: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
-                                caption: vid.caption,
-                              };
-                            }
-                          } catch {}
-                          return { rawUrl: raw, caption: vid.caption };
-                        };
-
-                        const videoInfos = documents.externalVideos
-                          .map(getEmbedInfo)
-                          .filter(Boolean);
-                        if (videoInfos.length === 0) return null;
-
-                        const activeInfo =
-                          videoInfos[activeExternalVideoIndex] || videoInfos[0];
-
-                        return (
-                          <div className="flex flex-col gap-4">
-                            {activeInfo.embedUrl ? (
-                              <div className="space-y-3">
-                                <div className="aspect-video rounded-2xl overflow-hidden border border-teal/20 bg-navy max-w-2xl">
-                                  <iframe
-                                    width="100%"
-                                    height="100%"
-                                    src={activeInfo.embedUrl}
-                                    title="Active Video"
-                                    frameBorder="0"
-                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                    allowFullScreen
-                                  />
-                                </div>
-                                {activeInfo.caption && (
-                                  <p className="text-sm font-medium text-white px-1">
-                                    {activeInfo.caption}
-                                  </p>
-                                )}
-                              </div>
-                            ) : (
-                              <a
-                                href={activeInfo.rawUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center gap-3 p-4 bg-navy border border-teal/20 rounded-2xl hover:border-teal/50 transition-all"
-                              >
-                                <div className="w-10 h-10 rounded-xl bg-teal/10 flex items-center justify-center text-teal shrink-0">
-                                  <Play size={18} />
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                  <p className="text-sm font-bold text-white">
-                                    {activeInfo.caption ||
-                                      "Property Video Link"}
-                                  </p>
-                                  <p className="text-xs text-teal truncate">
-                                    {activeInfo.rawUrl}
-                                  </p>
-                                </div>
-                                <ExternalLink
-                                  size={16}
-                                  className="text-gray-500 shrink-0"
-                                />
-                              </a>
-                            )}
-
-                            {/* Thumbnails row */}
-                            {videoInfos.length > 1 && (
-                              <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-                                {videoInfos.map((info, idx) => (
-                                  <button
-                                    key={idx}
-                                    onClick={() =>
-                                      setActiveExternalVideoIndex(idx)
-                                    }
-                                    className={`relative shrink-0 w-32 aspect-video rounded-xl overflow-hidden border-2 transition-all ${activeExternalVideoIndex === idx ? "border-teal" : "border-transparent opacity-60 hover:opacity-100"}`}
-                                  >
-                                    {info.thumbnailUrl ? (
-                                      <>
-                                        <img
-                                          src={info.thumbnailUrl}
-                                          alt={`Video ${idx + 1}`}
-                                          className="w-full h-full object-cover"
-                                        />
-                                        <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                                          <Play
-                                            size={20}
-                                            className="text-white drop-shadow-md"
-                                          />
-                                        </div>
-                                      </>
-                                    ) : (
-                                      <div className="w-full h-full bg-navy flex items-center justify-center border border-teal/20">
-                                        <Play size={20} className="text-teal" />
-                                      </div>
-                                    )}
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })()}
-                    </div>
-                  </div>
-                )}
 
                 {/* ── Non-property Images (Due Diligence etc — always inline) ── */}
                 {documents.images.length > 0 && (

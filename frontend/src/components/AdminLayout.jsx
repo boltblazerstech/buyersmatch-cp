@@ -1,24 +1,84 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
-import { LogOut, RefreshCw, Image } from "lucide-react";
+import { LogOut, RefreshCw, Image, X, CheckCircle2, AlertCircle } from "lucide-react";
 import { adminLogout, getStoredUser } from "../api/client";
 import logo from "../assets/bm-logo-white-text-1B2A4A.jpg";
 
-const timeAgo = (isoString) => {
+const formatIST = (isoString) => {
   if (!isoString) return "Never";
-  const diff = Math.floor((Date.now() - new Date(isoString).getTime()) / 1000);
-  if (diff < 60)    return "Just now";
-  if (diff < 3600)  return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  const d = new Date(isoString);
-  return `${d.getDate()} ${d.toLocaleString("default", { month: "short" })} ${d.getHours().toString().padStart(2,"0")}:${d.getMinutes().toString().padStart(2,"0")}`;
+  return new Date(isoString).toLocaleString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+};
+
+const SyncResultPopup = ({ label, logs, onClose }) => {
+  useEffect(() => {
+    const t = setTimeout(onClose, 10000);
+    return () => clearTimeout(t);
+  }, [onClose]);
+
+  const completedLogs = logs.filter(l => l.status === "SUCCESS" || l.status === "FAILED");
+  const lastCompleted = completedLogs[0];
+
+  return (
+    <div className="fixed bottom-6 right-6 z-[200] w-80 bg-[#0D1B35] border border-teal/30 rounded-2xl shadow-2xl overflow-hidden animate-fade-in">
+      <div className="flex items-center justify-between px-4 py-3 bg-teal/10 border-b border-teal/20">
+        <div className="flex items-center gap-2">
+          <CheckCircle2 size={16} className="text-teal" />
+          <span className="text-sm font-bold text-white">{label} Complete</span>
+        </div>
+        <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
+          <X size={14} />
+        </button>
+      </div>
+      <div className="px-4 py-3 space-y-2">
+        {completedLogs.length === 0 ? (
+          <p className="text-xs text-gray-400">No log data available.</p>
+        ) : (
+          completedLogs.map((log, i) => {
+            const durationMs = log.completedAt && log.startedAt
+              ? new Date(log.completedAt).getTime() - new Date(log.startedAt).getTime()
+              : null;
+            const durationStr = durationMs != null
+              ? durationMs < 1000 ? `${durationMs}ms` : `${(durationMs / 1000).toFixed(1)}s`
+              : "—";
+            return (
+              <div key={i} className="flex items-center justify-between text-xs">
+                <span className="text-gray-300 font-medium">{log.module}</span>
+                <div className="flex items-center gap-3">
+                  <span className={log.status === "FAILED" ? "text-red-400" : "text-teal font-bold"}>
+                    {log.recordsSynced ?? 0} records
+                  </span>
+                  <span className="text-gray-500 w-10 text-right">{durationStr}</span>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+      {lastCompleted?.completedAt && (
+        <div className="px-4 py-2 border-t border-white/5">
+          <p className="text-[10px] text-gray-500">
+            Completed {formatIST(lastCompleted.completedAt)} IST
+          </p>
+        </div>
+      )}
+    </div>
+  );
 };
 
 // watchModules: array of sync_state module names to poll for completion
 const SyncButton = ({ label, icon: Icon, endpoint, colorClass, activeColorClass, lastSyncedAt, watchModules, onDone }) => {
   const [state, setState] = useState("idle"); // idle | syncing | done | error
-  const pollRef   = useRef(null);
-  const snapshotRef = useRef(0); // lastSyncedAt value captured at click time
+  const [resultLogs, setResultLogs] = useState(null);
+  const pollRef    = useRef(null);
+  const snapshotRef  = useRef(0); // lastSyncedAt value before click
+  const clickTimeRef = useRef(0); // epoch ms when button was clicked
 
   const stopPolling = () => {
     if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
@@ -29,20 +89,21 @@ const SyncButton = ({ label, icon: Icon, endpoint, colorClass, activeColorClass,
   const handleClick = async () => {
     if (state === "syncing") return;
 
-    // Snapshot the current timestamp before firing so we can detect when it advances
     snapshotRef.current = lastSyncedAt ? new Date(lastSyncedAt).getTime() : 0;
+    clickTimeRef.current = Date.now();
     setState("syncing");
+    setResultLogs(null);
 
     try {
-      const { triggerSync, getSyncStatus } = await import('../api/admin');
+      const { triggerSync, getSyncStatus, getSyncLogs } = await import('../api/admin');
       await triggerSync(endpoint);
 
-      const deadline = Date.now() + 5 * 60 * 1000; // 5-minute timeout
+      const deadline = Date.now() + 5 * 60 * 1000;
 
       pollRef.current = setInterval(async () => {
         if (Date.now() > deadline) {
           stopPolling();
-          setState("error"); // timed out
+          setState("error");
           setTimeout(() => setState("idle"), 3000);
           return;
         }
@@ -51,7 +112,6 @@ const SyncButton = ({ label, icon: Icon, endpoint, colorClass, activeColorClass,
           const map = {};
           (Array.isArray(modules) ? modules : []).forEach(m => { map[m.module] = m.lastSyncedAt; });
 
-          // Find the most recent timestamp across all watched modules
           const latest = watchModules
             .map(mod => map[mod] ? new Date(map[mod]).getTime() : 0)
             .reduce((a, b) => Math.max(a, b), 0);
@@ -60,7 +120,12 @@ const SyncButton = ({ label, icon: Icon, endpoint, colorClass, activeColorClass,
             stopPolling();
             setState("done");
             if (onDone) onDone();
-            setTimeout(() => setState("idle"), 3000);
+            // Fetch sync logs for popup
+            try {
+              const logs = await getSyncLogs(watchModules, clickTimeRef.current);
+              setResultLogs(logs);
+            } catch { /* non-critical */ }
+            setTimeout(() => setState("idle"), 10000);
           }
         } catch { /* ignore transient poll errors */ }
       }, 3000);
@@ -79,24 +144,33 @@ const SyncButton = ({ label, icon: Icon, endpoint, colorClass, activeColorClass,
     label;
 
   return (
-    <div className="flex flex-col items-center gap-0.5">
-      <button
-        onClick={handleClick}
-        disabled={state === "syncing"}
-        className={`flex items-center gap-2 px-4 py-2 border rounded-xl font-bold uppercase tracking-widest text-[10px] transition-all
-          ${state === "done"    ? "bg-green-500/20 border-green-500/40 text-green-400" :
-            state === "error"   ? "bg-red-500/20 border-red-500/40 text-red-400" :
-            state === "syncing" ? `${colorClass} opacity-60 cursor-wait` :
-            `${colorClass} ${activeColorClass}`}
-        `}
-      >
-        <Icon size={16} className={state === "syncing" ? "animate-spin" : ""} />
-        <span className="hidden sm:inline">{label_}</span>
-      </button>
-      <span className="text-[9px] text-gray-500 hidden sm:block">
-        Last: {timeAgo(lastSyncedAt)}
-      </span>
-    </div>
+    <>
+      <div className="flex flex-col items-center gap-0.5">
+        <button
+          onClick={handleClick}
+          disabled={state === "syncing"}
+          className={`flex items-center gap-2 px-4 py-2 border rounded-xl font-bold uppercase tracking-widest text-[10px] transition-all
+            ${state === "done"    ? "bg-green-500/20 border-green-500/40 text-green-400" :
+              state === "error"   ? "bg-red-500/20 border-red-500/40 text-red-400" :
+              state === "syncing" ? `${colorClass} opacity-60 cursor-wait` :
+              `${colorClass} ${activeColorClass}`}
+          `}
+        >
+          <Icon size={16} className={state === "syncing" ? "animate-spin" : ""} />
+          <span className="hidden sm:inline">{label_}</span>
+        </button>
+        <span className="text-[9px] text-gray-500 hidden sm:block">
+          Last: {formatIST(lastSyncedAt)}
+        </span>
+      </div>
+      {state === "done" && resultLogs && (
+        <SyncResultPopup
+          label={label}
+          logs={resultLogs}
+          onClose={() => { setResultLogs(null); setState("idle"); }}
+        />
+      )}
+    </>
   );
 };
 
