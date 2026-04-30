@@ -598,7 +598,7 @@ public class ZohoSyncService {
         java.util.concurrent.CompletableFuture<Void> briefs =
                 java.util.concurrent.CompletableFuture.runAsync(() -> syncBuyerBriefs(false, null));
         java.util.concurrent.CompletableFuture<Void> docs =
-                java.util.concurrent.CompletableFuture.runAsync(() -> syncPropertyDocuments(false, null, true));
+                java.util.concurrent.CompletableFuture.runAsync(() -> syncPropertyDocuments(true, null, true));
         java.util.concurrent.CompletableFuture<Void> clients =
                 java.util.concurrent.CompletableFuture.runAsync(() -> syncClientManagement(false, null));
         java.util.concurrent.CompletableFuture.allOf(briefs, docs, clients).join();
