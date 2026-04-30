@@ -10,11 +10,11 @@ const toUtcDate = (s) => {
   return new Date(s.includes('Z') || s.includes('+') ? s : s + 'Z');
 };
 
-const formatIST = (dateString) => {
+const formatBrisbane = (dateString) => {
   const d = toUtcDate(dateString);
   if (!d || isNaN(d.getTime())) return '';
-  return d.toLocaleString('en-IN', {
-    timeZone: 'Asia/Kolkata',
+  return d.toLocaleString('en-AU', {
+    timeZone: 'Australia/Brisbane',
     day: 'numeric',
     month: 'short',
     hour: '2-digit',
@@ -139,7 +139,7 @@ const NotificationBell = () => {
                             {n.title}
                           </p>
                           <span className="text-[10px] text-gray-500 whitespace-nowrap">
-                            {formatIST(n.createdAt)}
+                            {formatBrisbane(n.createdAt)}
                           </span>
                         </div>
                         <p className="text-xs text-gray-400 mt-1 leading-relaxed">

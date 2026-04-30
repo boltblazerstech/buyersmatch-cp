@@ -4,18 +4,18 @@ import { LogOut, RefreshCw, Image, X, CheckCircle2, AlertCircle } from "lucide-r
 import { adminLogout, getStoredUser } from "../api/client";
 import logo from "../assets/bm-logo-white-text-1B2A4A.jpg";
 
-// Backend stores LocalDateTime (no TZ) in UTC — append Z so JS parses as UTC, then convert to IST
+// Backend stores LocalDateTime (no TZ) in UTC — append Z so JS parses as UTC, then convert to Brisbane (UTC+10)
 const toUtcDate = (isoString) => {
   if (!isoString) return null;
   if (typeof isoString !== "string") return new Date(isoString);
   return new Date(isoString.includes("Z") || isoString.includes("+") ? isoString : isoString + "Z");
 };
 
-const formatIST = (isoString) => {
+const formatBrisbane = (isoString) => {
   const d = toUtcDate(isoString);
   if (!d || isNaN(d.getTime())) return "Never";
-  return d.toLocaleString("en-IN", {
-    timeZone: "Asia/Kolkata",
+  return d.toLocaleString("en-AU", {
+    timeZone: "Australia/Brisbane",
     day: "numeric",
     month: "short",
     hour: "2-digit",
@@ -72,7 +72,7 @@ const SyncResultPopup = ({ label, logs, onClose }) => {
       {lastCompleted?.completedAt && (
         <div className="px-4 py-2 border-t border-white/5">
           <p className="text-[10px] text-gray-500">
-            Completed {formatIST(lastCompleted.completedAt)} IST
+            Completed {formatBrisbane(lastCompleted.completedAt)} AEST
           </p>
         </div>
       )}
@@ -168,7 +168,7 @@ const SyncButton = ({ label, icon: Icon, endpoint, colorClass, activeColorClass,
           <span className="hidden sm:inline">{label_}</span>
         </button>
         <span className="text-[9px] text-gray-500 hidden sm:block">
-          Last: {formatIST(lastSyncedAt)}
+          Last: {formatBrisbane(lastSyncedAt)}
         </span>
       </div>
       {state === "done" && resultLogs && (
