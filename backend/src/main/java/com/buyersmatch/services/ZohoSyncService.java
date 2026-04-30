@@ -990,7 +990,7 @@ public class ZohoSyncService {
     // SCHEDULER — runs every 5 minutes
     // -------------------------------------------------------------------------
 
-    @Scheduled(fixedRate = 300000)
+    @Scheduled(fixedDelay = 300000)
     public void scheduledDataSync() {
         log.info("Scheduled data sync started");
         runDataSync();
@@ -1000,7 +1000,7 @@ public class ZohoSyncService {
     // SCHEDULER — media sync every 60 minutes (safety net for missed uploads)
     // -------------------------------------------------------------------------
 
-    @Scheduled(fixedRate = 3600000)
+    @Scheduled(fixedDelay = 3600000)
     public void scheduledMediaSync() {
         log.info("Scheduled media sync started");
         runMediaSync();
