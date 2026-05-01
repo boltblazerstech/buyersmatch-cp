@@ -12,6 +12,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
+import java.util.Set;
 
 @Component
 @Order(1)
@@ -20,15 +21,20 @@ public class AdminSessionFilter extends OncePerRequestFilter {
 
     private final AdminAuthService adminAuthService;
 
+    private static final Set<String> PUBLIC_ADMIN_PATHS = Set.of(
+            "/api/admin/auth/login",
+            "/api/admin/sync/data",
+            "/api/admin/sync/media",
+            "/api/admin/sync/delta"
+    );
+
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
-        // Only protect /api/admin/** routes
         if (!path.startsWith("/api/admin/")) {
             return true;
         }
-        // Login is public — all other auth endpoints (logout, change-password) require a valid token
-        return path.equals("/api/admin/auth/login");
+        return PUBLIC_ADMIN_PATHS.contains(path);
     }
 
     @Override
