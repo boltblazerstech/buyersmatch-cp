@@ -552,7 +552,7 @@ const ClientDetail = () => {
                 className="flex items-center gap-2 px-4 py-2 bg-teal/10 border border-teal/30 text-teal rounded-xl text-sm font-bold hover:bg-teal/20 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 <RefreshCw size={15} className={refreshing ? "animate-spin" : ""} />
-                {refreshing ? "Syncing..." : "Refresh Client"}
+                {refreshing ? "Syncing..." : "Refresh"}
               </button>
               {refreshMsg && (
                 <span className={`text-xs font-semibold ${refreshMsg === "Updated" ? "text-teal" : "text-red-400"}`}>
