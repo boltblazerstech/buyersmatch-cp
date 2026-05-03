@@ -105,6 +105,20 @@ public class EmailService {
   }
 
   // -------------------------------------------------------------------------
+  // SYNC FAILURE ALERT
+  // -------------------------------------------------------------------------
+
+  public void sendSyncFailureAlert(String source, String module, String errorMessage) {
+    try {
+      String subject = "⚠️ Sync Failed — " + module + " [" + source + "]";
+      send(keepAliveAlertEmail, subject, buildSyncFailureHtml(source, module, errorMessage));
+      log.warn("Sync failure alert sent: {} / {}", source, module);
+    } catch (Exception e) {
+      log.error("Failed to send sync failure alert: {}", e.getMessage());
+    }
+  }
+
+  // -------------------------------------------------------------------------
   // KEEP-ALIVE ALERT
   // -------------------------------------------------------------------------
 
@@ -120,6 +134,47 @@ public class EmailService {
   // -------------------------------------------------------------------------
   // TEMPLATES
   // -------------------------------------------------------------------------
+
+  private String buildSyncFailureHtml(String source, String module, String errorMessage) {
+    String time = java.time.LocalDateTime.now().toString().replace("T", " ").substring(0, 19);
+    return """
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="UTF-8"></head>
+        <body style="font-family:Arial,sans-serif;background:#f1f5f9;margin:0;padding:0;">
+          <div style="max-width:600px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+            <div style="background:#7c2d12;padding:36px 32px;text-align:center;">
+              <h1 style="color:#fdba74;margin:0;font-size:26px;letter-spacing:-0.5px;">⚠️ Sync Failure</h1>
+              <p style="color:#fed7aa;margin:6px 0 0;font-size:14px;">Buyers Match — Data Sync Alert</p>
+            </div>
+            <div style="padding:40px 32px;">
+              <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:24px;margin:0 0 24px;">
+                <table style="width:100%%;border-collapse:collapse;">
+                  <tr>
+                    <td style="padding:8px 0;color:#64748b;font-size:13px;width:90px;font-weight:600;">Source</td>
+                    <td style="padding:8px 0;color:#0d2240;font-size:14px;font-weight:700;">%s</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:8px 0;color:#64748b;font-size:13px;font-weight:600;">Module</td>
+                    <td style="padding:8px 0;color:#0d2240;font-size:14px;font-weight:700;">%s</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:8px 0;color:#64748b;font-size:13px;font-weight:600;">Time</td>
+                    <td style="padding:8px 0;color:#0d2240;font-size:14px;">%s UTC</td>
+                  </tr>
+                </table>
+              </div>
+              <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:20px;margin:0 0 24px;">
+                <p style="margin:0 0 8px;color:#c2410c;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;">Error Details</p>
+                <p style="margin:0;color:#0d2240;font-size:13px;font-family:monospace;word-break:break-all;line-height:1.6;">%s</p>
+              </div>
+              <p style="color:#94a3b8;font-size:12px;text-align:center;margin:0;">You will not receive another alert for this module for 30 minutes.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+        """.formatted(source, module, time, errorMessage != null ? errorMessage : "Unknown error");
+  }
 
   private String buildKeepAliveAlertHtml(String errorMessage) {
     String time = java.time.LocalDateTime.now().toString().replace("T", " ").substring(0, 19);

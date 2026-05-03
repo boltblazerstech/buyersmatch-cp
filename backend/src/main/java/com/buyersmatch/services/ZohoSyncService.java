@@ -2,6 +2,8 @@ package com.buyersmatch.services;
 
 import com.buyersmatch.entities.*;
 import com.buyersmatch.repositories.*;
+import java.time.Instant;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,9 +36,25 @@ public class ZohoSyncService {
     private final R2StorageService r2StorageService;
     private final ClientPortalUserRepository clientPortalUserRepository;
     private final NotificationService notificationService;
+    private final EmailService emailService;
 
     @Value("${zoho.base.url}")
     private String baseUrl;
+
+    private static final long ALERT_COOLDOWN_MINUTES = 30;
+    private final Map<String, Instant> lastAlertSent = new ConcurrentHashMap<>();
+
+    private void sendFailureAlert(String source, String module, String error) {
+        String key = source + "-" + module;
+        Instant now = Instant.now();
+        Instant last = lastAlertSent.getOrDefault(key, Instant.EPOCH);
+        if (java.time.Duration.between(last, now).toMinutes() >= ALERT_COOLDOWN_MINUTES) {
+            lastAlertSent.put(key, now);
+            emailService.sendSyncFailureAlert(source, module, error);
+        } else {
+            log.debug("Sync failure alert suppressed for {} (cooldown active)", key);
+        }
+    }
 
     // Zoho expects ISO-8601 with offset e.g. 2024-01-15T08:30:00+00:00
     private static final DateTimeFormatter ZOHO_DATE_FORMAT =
@@ -299,6 +317,7 @@ public class ZohoSyncService {
         } catch (Exception e) {
             log.error("BuyerBriefs sync failed: {}", e.getMessage(), e);
             endLog(syncLog, count, "FAILED");
+            sendFailureAlert("Scheduler", "BuyerBriefs", e.getMessage());
         }
     }
 
@@ -341,6 +360,7 @@ public class ZohoSyncService {
         } catch (Exception e) {
             log.error("Properties sync failed: {}", e.getMessage(), e);
             endLog(syncLog, count, "FAILED");
+            sendFailureAlert("Scheduler", "Properties", e.getMessage());
         }
     }
 
@@ -403,6 +423,7 @@ public class ZohoSyncService {
         } catch (Exception e) {
             log.error("PropertyDocuments sync failed: {}", e.getMessage(), e);
             endLog(syncLog, count, "FAILED");
+            sendFailureAlert("Scheduler", "PropertyDocuments", e.getMessage());
         }
     }
 
@@ -462,6 +483,7 @@ public class ZohoSyncService {
         } catch (Exception e) {
             log.error("ClientManagement sync failed: {}", e.getMessage(), e);
             endLog(syncLog, count, "FAILED");
+            sendFailureAlert("Scheduler", "ClientManagement", e.getMessage());
         }
     }
 
@@ -614,6 +636,37 @@ public class ZohoSyncService {
     }
 
     // -------------------------------------------------------------------------
+    // CLIENT REFRESH — syncs all data for one contact (assignments, properties, docs)
+    // -------------------------------------------------------------------------
+
+    public void refreshClientData(String zohoContactId) {
+        log.info("Client refresh started for contact {}", zohoContactId);
+        syncAssignmentsForSingleContact(zohoContactId);
+        log.info("Client refresh completed for contact {}", zohoContactId);
+    }
+
+    @SuppressWarnings("unchecked")
+    private void syncAssignmentsForSingleContact(String zohoContactId) {
+        try {
+            String url = baseUrl + "/Client_Management/search?criteria=(Buyer:equals:" + zohoContactId + ")&per_page=200";
+            ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.GET, new HttpEntity<>(getZohoHeaders()), Map.class);
+            if (response.getStatusCode() != HttpStatus.OK || response.getBody() == null) return;
+            List<Map<String, Object>> records = (List<Map<String, Object>>) response.getBody().get("data");
+            if (records == null || records.isEmpty()) return;
+
+            Map<String, String> contactEmailCache = new HashMap<>();
+            for (Map<String, Object> r : records) {
+                String zohoAssignmentId = r.get("id") != null ? r.get("id").toString() : null;
+                if (zohoAssignmentId == null) continue;
+                saveAssignmentRecord(r, zohoAssignmentId, contactEmailCache);
+            }
+            log.info("Client refresh: synced {} assignments for contact {}", records.size(), zohoContactId);
+        } catch (Exception e) {
+            log.error("Client refresh: failed to sync assignments for contact {}: {}", zohoContactId, e.getMessage());
+        }
+    }
+
+    // -------------------------------------------------------------------------
     // SINGLE-PROPERTY ASSIGNMENT SYNC (used for brand-new properties in delta sync)
     // -------------------------------------------------------------------------
 
@@ -719,6 +772,11 @@ public class ZohoSyncService {
 
     @SuppressWarnings("unchecked")
     private void syncDocumentsForSingleProperty(String zohoPropertyId) {
+        syncDocumentsForSingleProperty(zohoPropertyId, false);
+    }
+
+    @SuppressWarnings("unchecked")
+    private void syncDocumentsForSingleProperty(String zohoPropertyId, boolean skipR2) {
         try {
             String url = baseUrl + "/Property_Documents/search?criteria=(Property:equals:" + zohoPropertyId + ")&per_page=200";
             ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.GET, new HttpEntity<>(getZohoHeaders()), Map.class);
@@ -731,14 +789,14 @@ public class ZohoSyncService {
                 try {
                     String zohoDocId = r.get("id") != null ? r.get("id").toString() : null;
                     if (zohoDocId == null) continue;
-                    savePropertyDocumentRecord(r, zohoDocId, allowedPropertyIds, false);
+                    savePropertyDocumentRecord(r, zohoDocId, allowedPropertyIds, skipR2);
                 } catch (Exception e) {
                     log.error("Error saving document {} for property {}: {}", r.get("id"), zohoPropertyId, e.getMessage());
                 }
             }
-            log.info("Re-synced {} documents for property {} after Rejected→active", records.size(), zohoPropertyId);
+            log.info("Synced {} documents for property {}", records.size(), zohoPropertyId);
         } catch (Exception e) {
-            log.error("Failed to re-sync documents for property {}: {}", zohoPropertyId, e.getMessage());
+            log.error("Failed to sync documents for property {}: {}", zohoPropertyId, e.getMessage());
         }
     }
 
@@ -1039,6 +1097,7 @@ public class ZohoSyncService {
             log.info("Webhook: processed PropertyDocument {} ({})", zohoId, operation);
         } catch (Exception e) {
             log.error("Webhook: failed to handle PropertyDocument {} ({}): {}", zohoId, operation, e.getMessage());
+            sendFailureAlert("Webhook", "PropertyDocuments", "ID: " + zohoId + " | Op: " + operation + " | " + e.getMessage());
         }
     }
 
@@ -1062,6 +1121,7 @@ public class ZohoSyncService {
             log.info("Webhook: processed Assignment {} ({})", zohoId, operation);
         } catch (Exception e) {
             log.error("Webhook: failed to handle Assignment {} ({}): {}", zohoId, operation, e.getMessage());
+            sendFailureAlert("Webhook", "ClientManagement", "ID: " + zohoId + " | Op: " + operation + " | " + e.getMessage());
         }
     }
 
@@ -1083,6 +1143,7 @@ public class ZohoSyncService {
             log.info("Webhook: processed Property {} ({})", zohoId, operation);
         } catch (Exception e) {
             log.error("Webhook: failed to handle Property {} ({}): {}", zohoId, operation, e.getMessage());
+            sendFailureAlert("Webhook", "Properties", "ID: " + zohoId + " | Op: " + operation + " | " + e.getMessage());
         }
     }
 
@@ -1106,6 +1167,7 @@ public class ZohoSyncService {
             log.info("Webhook: processed BuyerBrief {} ({})", zohoId, operation);
         } catch (Exception e) {
             log.error("Webhook: failed to handle BuyerBrief {} ({}): {}", zohoId, operation, e.getMessage());
+            sendFailureAlert("Webhook", "BuyerBriefs", "ID: " + zohoId + " | Op: " + operation + " | " + e.getMessage());
         }
     }
 
@@ -1135,16 +1197,6 @@ public class ZohoSyncService {
     }
 
     // -------------------------------------------------------------------------
-    // SCHEDULER — media sync every 10 minutes (safety net for missed uploads)
-    // -------------------------------------------------------------------------
-
-    @Scheduled(fixedDelay = 600000)
-    public void scheduledMediaSync() {
-        log.info("Scheduled media sync started");
-        runMediaSync();
-    }
-
-    // -------------------------------------------------------------------------
     // SCHEDULER — runs daily at 9 AM Sydney time
     // -------------------------------------------------------------------------
 
@@ -1155,6 +1207,7 @@ public class ZohoSyncService {
             notificationService.createRevaluationNotifications();
         } catch (Exception e) {
             log.error("Revaluation check failed: {}", e.getMessage());
+            sendFailureAlert("Scheduler", "RevaluationCheck", e.getMessage());
         }
     }
 }

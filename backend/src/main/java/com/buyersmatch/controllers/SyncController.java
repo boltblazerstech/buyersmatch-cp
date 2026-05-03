@@ -133,6 +133,13 @@ public class SyncController {
         return ResponseEntity.ok(Map.of("success", true, "message", "ClientManagement sync started in background" + (limit != null ? " (limit " + limit + ")" : "")));
     }
 
+    @PostMapping("/client/{zohoContactId}")
+    public ResponseEntity<Map<String, Object>> refreshClient(@PathVariable String zohoContactId) {
+        log.info("Admin triggered client refresh for contact {}", zohoContactId);
+        CompletableFuture.runAsync(() -> zohoSyncService.refreshClientData(zohoContactId));
+        return ResponseEntity.ok(Map.of("success", true, "message", "Client refresh started for " + zohoContactId));
+    }
+
     @PostMapping("/documents/missing-r2")
     public ResponseEntity<Map<String, Object>> uploadMissingR2Documents() {
         log.info("Missing R2 upload triggered via API");

@@ -10,6 +10,7 @@ import com.buyersmatch.entities.ClientPortalUser;
 import com.buyersmatch.services.EmailService;
 import com.buyersmatch.services.R2StorageService;
 import com.buyersmatch.services.ZohoAuthService;
+import com.buyersmatch.services.ZohoSyncService;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +24,7 @@ import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 @RestController
@@ -40,6 +42,7 @@ public class ClientController {
     private final ZohoAuthService zohoAuthService;
     private final R2StorageService r2StorageService;
     private final RestTemplate restTemplate;
+    private final ZohoSyncService zohoSyncService;
 
     @Value("${zoho.base.url}")
     private String zohoBaseUrl;
@@ -61,6 +64,13 @@ public class ClientController {
         }
 
         return ResponseEntity.ok(Map.of("success", true, "data", data));
+    }
+
+    @PostMapping("/api/client/{zohoContactId}/refresh")
+    public ResponseEntity<Map<String, Object>> refreshClient(@PathVariable String zohoContactId) {
+        log.info("Client refresh requested for contact {}", zohoContactId);
+        CompletableFuture.runAsync(() -> zohoSyncService.refreshClientData(zohoContactId));
+        return ResponseEntity.ok(Map.of("success", true, "message", "Refresh started"));
     }
 
     // Accepts both buyer_brief.id (UUID) and zohoContactId (string)
