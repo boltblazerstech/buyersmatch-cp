@@ -285,54 +285,7 @@ public class ZohoSyncService {
                 try {
                     String zohoBriefId = r.get("id") != null ? r.get("id").toString() : null;
                     if (zohoBriefId == null) continue;
-
-                    BuyerBrief brief = buyerBriefRepository.findByZohoBriefId(zohoBriefId)
-                            .orElse(BuyerBrief.builder().build());
-
-                    brief.setZohoBriefId(zohoBriefId);
-                    brief.setZohoContactId(getNestedId(r, "Buyer_Name"));
-                    brief.setZohoName(getNestedName(r, "Buyer_Name"));
-                    brief.setFullName(getNestedName(r, "Buyer_Name")); // Map fullName from Buyer_Name nested name
-                    brief.setEmail(r.get("Buyer_Email") != null ? r.get("Buyer_Email").toString() : null);
-                    brief.setSecondaryEmail(r.get("Secondary_Client_Email") != null ? r.get("Secondary_Client_Email").toString() : null);
-                    brief.setGreetingName(r.get("Contact_Greeting_Name_1") != null ? r.get("Contact_Greeting_Name_1").toString() : null);
-                    brief.setMinBudget(toBigDecimal(r.get("Minimum_Budget")));
-                    brief.setMaxBudget(toBigDecimal(r.get("Maximum_Budget")));
-                    brief.setAvailableDeposit(toBigDecimal(r.get("Available_Deposit")));
-                    brief.setDepositEquityPercent(toBigDecimal(r.get("Deposit_Equity_Percent")));
-                    brief.setPropertyTypes(getStringArray(r, "Property_Type"));
-                    brief.setPreferredStates(getStringArray(r, "Preffered_State"));
-                    brief.setPreferredSuburbs(r.get("Preferred_Suburbs_List") != null ? r.get("Preferred_Suburbs_List").toString() : null);
-                    brief.setBedBathGarage(r.get("Bed_Bath_Garage") != null ? r.get("Bed_Bath_Garage").toString() : null);
-                    brief.setLandSizeSqm(r.get("Land_Size_sqm") != null ? r.get("Land_Size_sqm").toString() : null);
-                    brief.setTimelineToBuy(r.get("Timeline_to_Buy") != null ? r.get("Timeline_to_Buy").toString() : null);
-                    brief.setPreApproved("Yes".equals(r.get("Pre_Approved")));
-                    brief.setInterestRate(toBigDecimal(r.get("Interest_Rate_Percent")));
-                    brief.setWeeklyRent(toBigDecimal(r.get("Weekly_Rent")));
-                    brief.setMonthlyHoldingCost(toBigDecimal(r.get("Monthly_Holding_Cost")));
-                    brief.setYieldPercent(toBigDecimal(r.get("Yield_Percent2")));
-                    brief.setTaxRate(toBigDecimal(r.get("Tax_Rate")));
-                    brief.setStatus(r.get("Status") != null ? r.get("Status").toString() : null);
-                    brief.setPriority(r.get("Priority") != null ? r.get("Priority").toString() : null);
-                    brief.setAssignedAgents(getStringArray(r, "Buyers_Brief_Owner_1"));
-                    brief.setTags(getTagNames(r));
-
-                    Object financerObj = r.get("Financer");
-                    if (financerObj instanceof Map) {
-                        @SuppressWarnings("unchecked")
-                        Map<String, Object> financer = (Map<String, Object>) financerObj;
-                        Object name = financer.get("name");
-                        brief.setFinancerName(name != null ? name.toString() : null);
-                    } else {
-                        brief.setFinancerName(null);
-                    }
-
-                    brief.setPropertyAssigned(r.get("Property_Assigned") instanceof Boolean ? (Boolean) r.get("Property_Assigned") : null);
-                    brief.setZohoCreatedAt(r.get("Created_Time") != null ? r.get("Created_Time").toString() : null);
-                    brief.setZohoModifiedAt(r.get("Modified_Time") != null ? r.get("Modified_Time").toString() : null);
-                    brief.setSyncedAt(LocalDateTime.now());
-
-                    buyerBriefRepository.save(brief);
+                    saveBuyerBriefRecord(r, zohoBriefId);
                     count++;
                 } catch (Exception e) {
                     log.error("Error mapping BuyerBrief record {}: {}", r.get("id"), e.getMessage());
@@ -375,64 +328,7 @@ public class ZohoSyncService {
                 try {
                     String zohoPropertyId = r.get("id") != null ? r.get("id").toString() : null;
                     if (zohoPropertyId == null) continue;
-
-                    String newStatus = r.get("Status") != null ? r.get("Status").toString() : null;
-                    Property existing = propertyRepository.findByZohoPropertyId(zohoPropertyId).orElse(null);
-
-                    // Rejected properties are never stored; cascade delete if they exist in DB
-                    if ("Rejected".equalsIgnoreCase(newStatus)) {
-                        if (existing != null) {
-                            log.info("Property {} is Rejected — cascade deleting from DB and R2", zohoPropertyId);
-                            deletePropertyWithCascade(zohoPropertyId);
-                        }
-                        continue;
-                    }
-
-                    boolean isNew = (existing == null);
-                    Property property = existing != null ? existing : Property.builder().build();
-
-                    property.setZohoPropertyId(zohoPropertyId);
-                    property.setAddress(r.get("Name") != null ? r.get("Name").toString() : null);
-                    property.setAddressLine1(r.get("Address_Line_1") != null ? r.get("Address_Line_1").toString() : null);
-                    property.setSuburb(r.get("Suburb") != null ? r.get("Suburb").toString() : null);
-                    property.setState(r.get("State") != null ? r.get("State").toString() : null);
-                    property.setPostCode(r.get("Post_Code") != null ? r.get("Post_Code").toString() : null);
-                    property.setPropertyType(r.get("Property_Type") != null ? r.get("Property_Type").toString() : null);
-                    property.setBedrooms(toInteger(r.get("Bedrooms")));
-                    property.setBathrooms(toInteger(r.get("Bathrooms")));
-                    property.setCarParking(toInteger(r.get("Car_Parking")));
-                    property.setAreaSqm(toDouble(r.get("Area_Sq_m")));
-                    property.setYearBuilt(toInteger(r.get("Year_Built")));
-                    property.setPool(r.get("Pool") instanceof Boolean ? (Boolean) r.get("Pool") : null);
-                    property.setAskingPriceMin(toBigDecimal(r.get("Asking_Price_Min")));
-                    property.setAskingPriceMax(toBigDecimal(r.get("Asking_Price_Max")));
-                    property.setMinRentPerMonth(toBigDecimal(r.get("Minimum_Rent_Per_Month")));
-                    property.setYieldPercent(toDouble(r.get("Yield_Percent")));
-                    property.setStatus(newStatus);
-                    property.setSaleType(r.get("Sale_Type") != null ? r.get("Sale_Type").toString() : null);
-                    property.setRentalSituation(r.get("Rental_Situation") != null ? r.get("Rental_Situation").toString() : null);
-                    property.setLgaRegion(r.get("LGA_Region") != null ? r.get("LGA_Region").toString() : null);
-                    property.setRentalAppraisal(r.get("Rental_Appraisal") != null ? r.get("Rental_Appraisal").toString() : null);
-                    property.setDateOfListing(r.get("Date_Of_Listing") != null ? r.get("Date_Of_Listing").toString() : null);
-                    property.setLinkToListing(r.get("Link_To_Listing") != null ? r.get("Link_To_Listing").toString() : null);
-                    property.setStashLink(r.get("Stash_Link") != null ? r.get("Stash_Link").toString() : null);
-                    property.setCmaLink(r.get("CMA_Link1") != null ? r.get("CMA_Link1").toString() : null);
-                    property.setCoreLogicLink(r.get("Core_Logic_Link") != null ? r.get("Core_Logic_Link").toString() : null);
-                    property.setPropertyVideoUrl(r.get("Youtube_Video_URL") != null ? r.get("Youtube_Video_URL").toString() : null);
-                    property.setAgentName(getNestedName(r, "Agent_Name"));
-                    property.setZohoCreatedAt(r.get("Created_Time") != null ? r.get("Created_Time").toString() : null);
-                    property.setZohoModifiedAt(r.get("Modified_Time") != null ? r.get("Modified_Time").toString() : null);
-                    property.setSyncedAt(LocalDateTime.now());
-
-                    propertyRepository.save(property);
-                    count++;
-
-                    // Brand-new property found in delta sync — immediately fetch its docs and assignments
-                    if (isNew && !fullSync) {
-                        log.info("New property {} discovered in delta sync — syncing its docs and assignments", zohoPropertyId);
-                        syncDocumentsForSingleProperty(zohoPropertyId);
-                        syncAssignmentsForSingleProperty(zohoPropertyId);
-                    }
+                    if (savePropertyRecord(r, zohoPropertyId, !fullSync)) count++;
                 } catch (Exception e) {
                     log.error("Error mapping Property record {}: {}", r.get("id"), e.getMessage());
                 }
@@ -996,6 +892,119 @@ public class ZohoSyncService {
     }
 
     // -------------------------------------------------------------------------
+    // RECORD SAVE HELPERS — shared by scheduler and webhook handlers
+    // -------------------------------------------------------------------------
+
+    private void saveBuyerBriefRecord(Map<String, Object> r, String zohoBriefId) {
+        BuyerBrief brief = buyerBriefRepository.findByZohoBriefId(zohoBriefId)
+                .orElse(BuyerBrief.builder().build());
+
+        brief.setZohoBriefId(zohoBriefId);
+        brief.setZohoContactId(getNestedId(r, "Buyer_Name"));
+        brief.setZohoName(getNestedName(r, "Buyer_Name"));
+        brief.setFullName(getNestedName(r, "Buyer_Name"));
+        brief.setEmail(r.get("Buyer_Email") != null ? r.get("Buyer_Email").toString() : null);
+        brief.setSecondaryEmail(r.get("Secondary_Client_Email") != null ? r.get("Secondary_Client_Email").toString() : null);
+        brief.setGreetingName(r.get("Contact_Greeting_Name_1") != null ? r.get("Contact_Greeting_Name_1").toString() : null);
+        brief.setMinBudget(toBigDecimal(r.get("Minimum_Budget")));
+        brief.setMaxBudget(toBigDecimal(r.get("Maximum_Budget")));
+        brief.setAvailableDeposit(toBigDecimal(r.get("Available_Deposit")));
+        brief.setDepositEquityPercent(toBigDecimal(r.get("Deposit_Equity_Percent")));
+        brief.setPropertyTypes(getStringArray(r, "Property_Type"));
+        brief.setPreferredStates(getStringArray(r, "Preffered_State"));
+        brief.setPreferredSuburbs(r.get("Preferred_Suburbs_List") != null ? r.get("Preferred_Suburbs_List").toString() : null);
+        brief.setBedBathGarage(r.get("Bed_Bath_Garage") != null ? r.get("Bed_Bath_Garage").toString() : null);
+        brief.setLandSizeSqm(r.get("Land_Size_sqm") != null ? r.get("Land_Size_sqm").toString() : null);
+        brief.setTimelineToBuy(r.get("Timeline_to_Buy") != null ? r.get("Timeline_to_Buy").toString() : null);
+        brief.setPreApproved("Yes".equals(r.get("Pre_Approved")));
+        brief.setInterestRate(toBigDecimal(r.get("Interest_Rate_Percent")));
+        brief.setWeeklyRent(toBigDecimal(r.get("Weekly_Rent")));
+        brief.setMonthlyHoldingCost(toBigDecimal(r.get("Monthly_Holding_Cost")));
+        brief.setYieldPercent(toBigDecimal(r.get("Yield_Percent2")));
+        brief.setTaxRate(toBigDecimal(r.get("Tax_Rate")));
+        brief.setStatus(r.get("Status") != null ? r.get("Status").toString() : null);
+        brief.setPriority(r.get("Priority") != null ? r.get("Priority").toString() : null);
+        brief.setAssignedAgents(getStringArray(r, "Buyers_Brief_Owner_1"));
+        brief.setTags(getTagNames(r));
+
+        Object financerObj = r.get("Financer");
+        if (financerObj instanceof Map) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> financer = (Map<String, Object>) financerObj;
+            Object name = financer.get("name");
+            brief.setFinancerName(name != null ? name.toString() : null);
+        } else {
+            brief.setFinancerName(null);
+        }
+
+        brief.setPropertyAssigned(r.get("Property_Assigned") instanceof Boolean ? (Boolean) r.get("Property_Assigned") : null);
+        brief.setZohoCreatedAt(r.get("Created_Time") != null ? r.get("Created_Time").toString() : null);
+        brief.setZohoModifiedAt(r.get("Modified_Time") != null ? r.get("Modified_Time").toString() : null);
+        brief.setSyncedAt(LocalDateTime.now());
+
+        buyerBriefRepository.save(brief);
+    }
+
+    // Returns true if saved, false if rejected/skipped
+    private boolean savePropertyRecord(Map<String, Object> r, String zohoPropertyId, boolean syncDocsAndAssignments) {
+        String newStatus = r.get("Status") != null ? r.get("Status").toString() : null;
+        Property existing = propertyRepository.findByZohoPropertyId(zohoPropertyId).orElse(null);
+
+        if ("Rejected".equalsIgnoreCase(newStatus)) {
+            if (existing != null) {
+                log.info("Property {} is Rejected — cascade deleting from DB and R2", zohoPropertyId);
+                deletePropertyWithCascade(zohoPropertyId);
+            }
+            return false;
+        }
+
+        boolean isNew = (existing == null);
+        Property property = existing != null ? existing : Property.builder().build();
+
+        property.setZohoPropertyId(zohoPropertyId);
+        property.setAddress(r.get("Name") != null ? r.get("Name").toString() : null);
+        property.setAddressLine1(r.get("Address_Line_1") != null ? r.get("Address_Line_1").toString() : null);
+        property.setSuburb(r.get("Suburb") != null ? r.get("Suburb").toString() : null);
+        property.setState(r.get("State") != null ? r.get("State").toString() : null);
+        property.setPostCode(r.get("Post_Code") != null ? r.get("Post_Code").toString() : null);
+        property.setPropertyType(r.get("Property_Type") != null ? r.get("Property_Type").toString() : null);
+        property.setBedrooms(toInteger(r.get("Bedrooms")));
+        property.setBathrooms(toInteger(r.get("Bathrooms")));
+        property.setCarParking(toInteger(r.get("Car_Parking")));
+        property.setAreaSqm(toDouble(r.get("Area_Sq_m")));
+        property.setYearBuilt(toInteger(r.get("Year_Built")));
+        property.setPool(r.get("Pool") instanceof Boolean ? (Boolean) r.get("Pool") : null);
+        property.setAskingPriceMin(toBigDecimal(r.get("Asking_Price_Min")));
+        property.setAskingPriceMax(toBigDecimal(r.get("Asking_Price_Max")));
+        property.setMinRentPerMonth(toBigDecimal(r.get("Minimum_Rent_Per_Month")));
+        property.setYieldPercent(toDouble(r.get("Yield_Percent")));
+        property.setStatus(newStatus);
+        property.setSaleType(r.get("Sale_Type") != null ? r.get("Sale_Type").toString() : null);
+        property.setRentalSituation(r.get("Rental_Situation") != null ? r.get("Rental_Situation").toString() : null);
+        property.setLgaRegion(r.get("LGA_Region") != null ? r.get("LGA_Region").toString() : null);
+        property.setRentalAppraisal(r.get("Rental_Appraisal") != null ? r.get("Rental_Appraisal").toString() : null);
+        property.setDateOfListing(r.get("Date_Of_Listing") != null ? r.get("Date_Of_Listing").toString() : null);
+        property.setLinkToListing(r.get("Link_To_Listing") != null ? r.get("Link_To_Listing").toString() : null);
+        property.setStashLink(r.get("Stash_Link") != null ? r.get("Stash_Link").toString() : null);
+        property.setCmaLink(r.get("CMA_Link1") != null ? r.get("CMA_Link1").toString() : null);
+        property.setCoreLogicLink(r.get("Core_Logic_Link") != null ? r.get("Core_Logic_Link").toString() : null);
+        property.setPropertyVideoUrl(r.get("Youtube_Video_URL") != null ? r.get("Youtube_Video_URL").toString() : null);
+        property.setAgentName(getNestedName(r, "Agent_Name"));
+        property.setZohoCreatedAt(r.get("Created_Time") != null ? r.get("Created_Time").toString() : null);
+        property.setZohoModifiedAt(r.get("Modified_Time") != null ? r.get("Modified_Time").toString() : null);
+        property.setSyncedAt(LocalDateTime.now());
+
+        propertyRepository.save(property);
+
+        if (isNew && syncDocsAndAssignments) {
+            log.info("New property {} — syncing its docs and assignments", zohoPropertyId);
+            syncDocumentsForSingleProperty(zohoPropertyId);
+            syncAssignmentsForSingleProperty(zohoPropertyId);
+        }
+        return true;
+    }
+
+    // -------------------------------------------------------------------------
     // WEBHOOK HANDLERS — called by ZohoWebhookController for real-time events
     // -------------------------------------------------------------------------
 
@@ -1053,6 +1062,50 @@ public class ZohoSyncService {
             log.info("Webhook: processed Assignment {} ({})", zohoId, operation);
         } catch (Exception e) {
             log.error("Webhook: failed to handle Assignment {} ({}): {}", zohoId, operation, e.getMessage());
+        }
+    }
+
+    public void handlePropertyWebhook(String zohoId, String operation) {
+        try {
+            if ("delete".equalsIgnoreCase(operation)) {
+                deletePropertyWithCascade(zohoId);
+                log.info("Webhook: cascade deleted Property {}", zohoId);
+                return;
+            }
+
+            Map<String, Object> record = fetchRecordById("Properties", zohoId);
+            if (record == null) {
+                log.warn("Webhook: Property {} not found in Zoho", zohoId);
+                return;
+            }
+
+            savePropertyRecord(record, zohoId, true);
+            log.info("Webhook: processed Property {} ({})", zohoId, operation);
+        } catch (Exception e) {
+            log.error("Webhook: failed to handle Property {} ({}): {}", zohoId, operation, e.getMessage());
+        }
+    }
+
+    public void handleBuyerBriefWebhook(String zohoId, String operation) {
+        try {
+            if ("delete".equalsIgnoreCase(operation)) {
+                buyerBriefRepository.findByZohoBriefId(zohoId).ifPresent(brief -> {
+                    buyerBriefRepository.delete(brief);
+                    log.info("Webhook: deleted BuyerBrief {} from DB", zohoId);
+                });
+                return;
+            }
+
+            Map<String, Object> record = fetchRecordById("Buyer_Briefs", zohoId);
+            if (record == null) {
+                log.warn("Webhook: BuyerBrief {} not found in Zoho", zohoId);
+                return;
+            }
+
+            saveBuyerBriefRecord(record, zohoId);
+            log.info("Webhook: processed BuyerBrief {} ({})", zohoId, operation);
+        } catch (Exception e) {
+            log.error("Webhook: failed to handle BuyerBrief {} ({}): {}", zohoId, operation, e.getMessage());
         }
     }
 

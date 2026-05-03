@@ -67,4 +67,50 @@ public class ZohoWebhookController {
         CompletableFuture.runAsync(() -> zohoSyncService.handleAssignmentWebhook(zohoId, operation));
         return ResponseEntity.ok(Map.of("success", true));
     }
+
+    @PostMapping("/properties")
+    public ResponseEntity<Map<String, Object>> propertiesWebhook(
+            @RequestHeader(value = "X-Webhook-Token", required = false) String token,
+            @RequestBody Map<String, Object> payload) {
+
+        if (!webhookToken.isBlank() && !webhookToken.equals(token)) {
+            log.warn("Webhook: rejected properties request — invalid token");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("success", false, "error", "Invalid token"));
+        }
+
+        String zohoId = payload.get("id") != null ? payload.get("id").toString() : null;
+        String operation = payload.get("operation") != null ? payload.get("operation").toString() : "update";
+
+        if (zohoId == null) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "error", "Missing id"));
+        }
+
+        log.info("Webhook received: Property {} ({})", zohoId, operation);
+        CompletableFuture.runAsync(() -> zohoSyncService.handlePropertyWebhook(zohoId, operation));
+        return ResponseEntity.ok(Map.of("success", true));
+    }
+
+    @PostMapping("/buyer-briefs")
+    public ResponseEntity<Map<String, Object>> buyerBriefsWebhook(
+            @RequestHeader(value = "X-Webhook-Token", required = false) String token,
+            @RequestBody Map<String, Object> payload) {
+
+        if (!webhookToken.isBlank() && !webhookToken.equals(token)) {
+            log.warn("Webhook: rejected buyer-briefs request — invalid token");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("success", false, "error", "Invalid token"));
+        }
+
+        String zohoId = payload.get("id") != null ? payload.get("id").toString() : null;
+        String operation = payload.get("operation") != null ? payload.get("operation").toString() : "update";
+
+        if (zohoId == null) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "error", "Missing id"));
+        }
+
+        log.info("Webhook received: BuyerBrief {} ({})", zohoId, operation);
+        CompletableFuture.runAsync(() -> zohoSyncService.handleBuyerBriefWebhook(zohoId, operation));
+        return ResponseEntity.ok(Map.of("success", true));
+    }
 }
