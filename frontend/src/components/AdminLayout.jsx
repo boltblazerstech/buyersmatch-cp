@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
-import { LogOut, RefreshCw, Image, X, CheckCircle2, AlertCircle } from "lucide-react";
+import { LogOut, RefreshCw, X, CheckCircle2 } from "lucide-react";
 import { adminLogout, getStoredUser } from "../api/client";
 import logo from "../assets/bm-logo-white-text-1B2A4A.jpg";
 
@@ -255,18 +255,6 @@ const AdminLayout = ({ children, title }) => {
             lastSyncedAt={dataLastSync}
             watchModules={["BuyerBriefs", "Properties", "PropertyDocuments", "ClientManagement"]}
             logModules={["BuyerBriefs", "Properties", "PropertyDocuments", "ClientManagement"]}
-            onDone={loadSyncStatus}
-          />
-
-          <SyncButton
-            label="Sync Media"
-            icon={Image}
-            endpoint="media"
-            colorClass="bg-purple-500/10 border-purple-500/30 text-purple-400"
-            activeColorClass="hover:bg-purple-500 hover:text-white"
-            lastSyncedAt={syncStatus["MediaSync"] ?? null}
-            watchModules={["MediaSync"]}
-            logModules={["Media"]}
             onDone={loadSyncStatus}
           />
 
