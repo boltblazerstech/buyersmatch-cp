@@ -401,9 +401,11 @@ const PropertyDetail = () => {
                 try {
                   const u = new URL(vid.url.trim());
                   let id = null;
+                  let listId = null;
                   if (u.hostname.includes("youtube.com")) {
                     id = u.searchParams.get("v");
-                    if (!id) {
+                    listId = u.searchParams.get("list");
+                    if (!id && !listId) {
                       const seg = u.pathname.split("/").filter(Boolean);
                       if (
                         seg.length >= 2 &&
@@ -414,10 +416,10 @@ const PropertyDetail = () => {
                   } else if (u.hostname === "youtu.be") {
                     id = u.pathname.slice(1);
                   }
-                  if (!id) return null;
+                  if (!id && !listId) return null;
                   return {
-                    embedUrl: `https://www.youtube.com/embed/${id}`,
-                    thumbnailUrl: `https://img.youtube.com/vi/${id}/hqdefault.jpg`,
+                    embedUrl: id ? `https://www.youtube.com/embed/${id}` : `https://www.youtube.com/embed/videoseries?list=${listId}`,
+                    thumbnailUrl: id ? `https://img.youtube.com/vi/${id}/hqdefault.jpg` : null,
                     caption: vid.caption,
                     mediaType: "youtube",
                   };
@@ -427,12 +429,12 @@ const PropertyDetail = () => {
               };
 
               const galleryItems = [
+                ...documents.videos.map((d) => ({ ...d, mediaType: "video" })),
+                ...documents.externalVideos.map(parseYt).filter(Boolean),
                 ...documents.propertyImages.map((d) => ({
                   ...d,
                   mediaType: "image",
                 })),
-                ...documents.videos.map((d) => ({ ...d, mediaType: "video" })),
-                ...documents.externalVideos.map(parseYt).filter(Boolean),
               ];
 
               return (

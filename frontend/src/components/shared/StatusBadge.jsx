@@ -66,7 +66,7 @@ export const getStatusConfig = (item) => {
 const StatusBadge = ({ item }) => {
   const { cls, label } = getStatusConfig(item);
   return (
-    <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${cls}`}>
+    <span className={`inline-block whitespace-nowrap px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${cls}`}>
       {label}
     </span>
   );

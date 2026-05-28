@@ -36,10 +36,10 @@ public class SyncController {
     @PostMapping("/full")
     public ResponseEntity<Map<String, Object>> fullSync(@RequestParam(required = false) Integer limit) {
         log.info("Full sync triggered via API, limit={}", limit);
-        assignmentRepository.deleteAll();
-        propertyDocumentRepository.deleteAll();
-        propertyRepository.deleteAll();
-        buyerBriefRepository.deleteAll();
+        assignmentRepository.deleteAllInBatch();
+        propertyDocumentRepository.deleteAllInBatch();
+        propertyRepository.deleteAllInBatch();
+        buyerBriefRepository.deleteAllInBatch();
 
         CompletableFuture.runAsync(() -> {
             zohoSyncService.syncBuyerBriefs(true, limit);

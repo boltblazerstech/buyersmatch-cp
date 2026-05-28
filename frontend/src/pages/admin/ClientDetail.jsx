@@ -78,8 +78,7 @@ const BuyerBriefView = ({ brief }) => {
   if (!brief) return null;
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3 px-1">
-        <p className="text-xs text-gray-500 font-mono">{brief.zohoBriefId}</p>
+      <div className="flex flex-wrap items-center justify-end gap-3 px-1">
         <div className="flex items-center gap-2">
           <span
             className="px-3 py-1 bg-gold/10 border border-gold/30 text-gold text-[10px] font-bold rounded-full uppercase tracking-widest"

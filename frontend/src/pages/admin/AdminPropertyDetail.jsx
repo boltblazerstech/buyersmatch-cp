@@ -65,6 +65,7 @@ const AdminPropertyDetail = () => {
   const [loading, setLoading] = useState(true);
   const [activeImage, setActiveImage] = useState(null);
   const [activeIsVideo, setActiveIsVideo] = useState(false);
+  const [activeIsYoutube, setActiveIsYoutube] = useState(false);
   const [notesDraft, setNotesDraft] = useState("");
   const [notesSaving, setNotesSaving] = useState(false);
   const [activeExternalVideoIndex, setActiveExternalVideoIndex] = useState(0);
@@ -82,11 +83,43 @@ const AdminPropertyDetail = () => {
         setDocuments(docsData);
 
         const firstImg = docsData.propertyImages?.[0];
+        const firstYt = docsData.externalVideos?.[0];
         const firstVid = docsData.videos?.[0];
-        const first = firstImg || firstVid;
-        if (first) {
-          setActiveImage(first.url);
-          setActiveIsVideo(!firstImg);
+        
+        if (firstYt) {
+          // It's a youtube embed
+          const raw = firstYt.url?.trim() || "";
+          let id = null;
+          let listId = null;
+          try {
+             const u = new URL(raw);
+             if (u.hostname.includes("youtube.com")) {
+               id = u.searchParams.get("v");
+               listId = u.searchParams.get("list");
+               if (!id && !listId) {
+                  const seg = u.pathname.split("/").filter(Boolean);
+                  if (seg.length >= 2 && ["shorts", "live", "embed", "v"].includes(seg[0])) id = seg[1];
+               }
+             } else if (u.hostname === "youtu.be") {
+               id = u.pathname.slice(1);
+             }
+          } catch {}
+          if (id || listId) {
+             setActiveImage(id ? `https://www.youtube.com/embed/${id}` : `https://www.youtube.com/embed/videoseries?list=${listId}`);
+             setActiveIsYoutube(true);
+             setActiveIsVideo(false);
+          } else {
+             setActiveImage(firstImg?.url || "");
+             setActiveIsYoutube(false);
+          }
+        } else if (firstVid) {
+          setActiveImage(firstVid.url);
+          setActiveIsVideo(!firstImg); // If no image, default to video playing
+          setActiveIsYoutube(false);
+        } else if (firstImg) {
+          setActiveImage(firstImg.url);
+          setActiveIsVideo(false);
+          setActiveIsYoutube(false);
         }
 
         const assignments =
@@ -341,19 +374,62 @@ const AdminPropertyDetail = () => {
         <div className="space-y-12">
           {/* 1. Gallery */}
           {(documents.propertyImages.length > 0 ||
-            documents.videos.length > 0) &&
+            documents.videos.length > 0 ||
+            documents.externalVideos.length > 0) &&
             (() => {
+              const parseYt = (vid) => {
+                if (!vid?.url) return null;
+                try {
+                  const u = new URL(vid.url.trim());
+                  let id = null;
+                  let listId = null;
+                  if (u.hostname.includes("youtube.com")) {
+                    id = u.searchParams.get("v");
+                    listId = u.searchParams.get("list");
+                    if (!id && !listId) {
+                      const seg = u.pathname.split("/").filter(Boolean);
+                      if (
+                        seg.length >= 2 &&
+                        ["shorts", "live", "embed", "v"].includes(seg[0])
+                      )
+                        id = seg[1];
+                    }
+                  } else if (u.hostname === "youtu.be") {
+                    id = u.pathname.slice(1);
+                  }
+                  if (!id && !listId) return null;
+                  return {
+                    embedUrl: id ? `https://www.youtube.com/embed/${id}` : `https://www.youtube.com/embed/videoseries?list=${listId}`,
+                    thumbnailUrl: id ? `https://img.youtube.com/vi/${id}/hqdefault.jpg` : null,
+                    caption: vid.caption,
+                    mediaType: "youtube",
+                  };
+                } catch {
+                  return null;
+                }
+              };
+
               const galleryItems = [
+                ...documents.videos.map((d) => ({ ...d, mediaType: "video" })),
+                ...documents.externalVideos.map(parseYt).filter(Boolean),
                 ...documents.propertyImages.map((d) => ({
                   ...d,
                   mediaType: "image",
                 })),
-                ...documents.videos.map((d) => ({ ...d, mediaType: "video" })),
               ];
               return (
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div className="md:col-span-3 aspect-[4/3] rounded-3xl overflow-hidden border border-teal/20 bg-navy">
-                    {activeIsVideo ? (
+                    {activeIsYoutube ? (
+                      <iframe
+                        key={activeImage}
+                        src={activeImage}
+                        className="w-full h-full"
+                        frameBorder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      />
+                    ) : activeIsVideo ? (
                       <video
                         key={activeImage}
                         controls
@@ -372,17 +448,33 @@ const AdminPropertyDetail = () => {
                   </div>
                   <div className="flex md:flex-col gap-4 overflow-x-auto md:overflow-y-auto max-h-[500px] scrollbar-hide">
                     {galleryItems.map((item, idx) => {
-                      const isActive = activeImage === item.url;
+                      const isActive =
+                        item.mediaType === "youtube"
+                          ? activeImage === item.embedUrl
+                          : activeImage === item.url;
                       return (
                         <button
                           key={idx}
                           onClick={() => {
-                            setActiveImage(item.url);
+                            setActiveImage(item.mediaType === "youtube" ? item.embedUrl : item.url);
                             setActiveIsVideo(item.mediaType === "video");
+                            setActiveIsYoutube(item.mediaType === "youtube");
                           }}
                           className={`relative flex-shrink-0 w-24 h-24 md:w-full md:h-32 rounded-2xl overflow-hidden border-2 transition-all ${isActive ? "border-teal scale-95" : "border-transparent opacity-50 hover:opacity-100"}`}
                         >
-                          {item.mediaType === "video" ? (
+                          {item.mediaType === "youtube" ? (
+                             item.thumbnailUrl ? (
+                               <img
+                                 src={item.thumbnailUrl}
+                                 alt={item.caption || ""}
+                                 className="w-full h-full object-cover"
+                               />
+                             ) : (
+                               <div className="w-full h-full bg-navy flex items-center justify-center border border-teal/20">
+                                 <Play size={20} className="text-teal" />
+                               </div>
+                             )
+                          ) : item.mediaType === "video" ? (
                             <video
                               src={item.url}
                               muted
@@ -397,7 +489,7 @@ const AdminPropertyDetail = () => {
                               referrerPolicy="no-referrer"
                             />
                           )}
-                          {item.mediaType === "video" && (
+                          {(item.mediaType === "video" || item.mediaType === "youtube") && (
                             <div className="absolute inset-0 flex items-center justify-center bg-black/30">
                               <div className="w-8 h-8 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
                                 <Play

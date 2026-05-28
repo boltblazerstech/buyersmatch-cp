@@ -390,8 +390,9 @@ public class ZohoSyncService {
                 return;
             }
 
-            // All properties in DB are valid (rejected ones are cascade-deleted on sync)
+            // Properties in DB that are not rejected are eligible for documents
             Set<String> validPropertyIds = propertyRepository.findAll().stream()
+                    .filter(p -> !"Rejected".equalsIgnoreCase(p.getStatus()))
                     .map(Property::getZohoPropertyId)
                     .filter(Objects::nonNull)
                     .collect(Collectors.toSet());
@@ -403,7 +404,7 @@ public class ZohoSyncService {
 
                     String docPropertyId = getNestedId(r, "Property");
                     if (!validPropertyIds.contains(docPropertyId)) {
-                        // Property not in DB (rejected or never synced) — remove orphan doc if any
+                        // Property not valid (rejected or never synced) — remove orphan doc if any
                         propertyDocumentRepository.findByZohoDocId(zohoDocId)
                                 .ifPresent(propertyDocumentRepository::delete);
                         continue;
@@ -564,6 +565,7 @@ public class ZohoSyncService {
      */
     private Set<String> getAllValidPropertyIds() {
         return propertyRepository.findAll().stream()
+                .filter(p -> !"Rejected".equalsIgnoreCase(p.getStatus()))
                 .map(Property::getZohoPropertyId)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
@@ -619,6 +621,17 @@ public class ZohoSyncService {
     // -------------------------------------------------------------------------
 
     private void deletePropertyWithCascade(String zohoPropertyId) {
+        deletePropertyDocumentsOnly(zohoPropertyId);
+
+        List<Assignment> assignments = assignmentRepository.findAllByZohoPropertyId(zohoPropertyId);
+        assignmentRepository.deleteAll(assignments);
+
+        propertyRepository.findByZohoPropertyId(zohoPropertyId).ifPresent(propertyRepository::delete);
+
+        log.info("Cascade deleted property {} and its assignments", zohoPropertyId);
+    }
+
+    private void deletePropertyDocumentsOnly(String zohoPropertyId) {
         List<PropertyDocument> docs = propertyDocumentRepository.findAllByZohoPropertyId(zohoPropertyId);
         for (PropertyDocument doc : docs) {
             if (doc.getZohoDocId() != null && doc.getFileName() != null) {
@@ -626,14 +639,9 @@ public class ZohoSyncService {
             }
         }
         propertyDocumentRepository.deleteAll(docs);
-
-        List<Assignment> assignments = assignmentRepository.findAllByZohoPropertyId(zohoPropertyId);
-        assignmentRepository.deleteAll(assignments);
-
-        propertyRepository.findByZohoPropertyId(zohoPropertyId).ifPresent(propertyRepository::delete);
-
-        log.info("Cascade deleted property {} ({} docs, {} assignments)", zohoPropertyId, docs.size(), assignments.size());
+        log.info("Deleted {} documents for property {}", docs.size(), zohoPropertyId);
     }
+
 
     // -------------------------------------------------------------------------
     // CLIENT REFRESH — syncs all data for one contact (assignments, properties, docs)
@@ -800,6 +808,12 @@ public class ZohoSyncService {
     @SuppressWarnings("unchecked")
     private void syncDocumentsForSingleProperty(String zohoPropertyId, boolean skipR2) {
         try {
+            Property p = propertyRepository.findByZohoPropertyId(zohoPropertyId).orElse(null);
+            if (p != null && "Rejected".equalsIgnoreCase(p.getStatus())) {
+                log.info("Skipping document sync for rejected property {}", zohoPropertyId);
+                return;
+            }
+
             String url = baseUrl + "/Property_Documents/search?criteria=(Property:equals:" + zohoPropertyId + ")&per_page=200";
             ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.GET, new HttpEntity<>(getZohoHeaders()), Map.class);
             if (response.getStatusCode() != HttpStatus.OK || response.getBody() == null) return;
@@ -1039,11 +1053,10 @@ public class ZohoSyncService {
         Property existing = propertyRepository.findByZohoPropertyId(zohoPropertyId).orElse(null);
 
         if ("Rejected".equalsIgnoreCase(newStatus)) {
-            if (existing != null) {
-                log.info("Property {} is Rejected — cascade deleting from DB and R2", zohoPropertyId);
-                deletePropertyWithCascade(zohoPropertyId);
+            if (existing != null && !"Rejected".equalsIgnoreCase(existing.getStatus())) {
+                log.info("Property {} is newly Rejected — deleting its documents from DB and R2", zohoPropertyId);
+                deletePropertyDocumentsOnly(zohoPropertyId);
             }
-            return false;
         }
 
         boolean isNew = (existing == null);
@@ -1075,8 +1088,12 @@ public class ZohoSyncService {
         property.setLinkToListing(r.get("Link_To_Listing") != null ? r.get("Link_To_Listing").toString() : null);
         property.setStashLink(r.get("Stash_Link") != null ? r.get("Stash_Link").toString() : null);
         property.setCmaLink(r.get("CMA_Link1") != null ? r.get("CMA_Link1").toString() : null);
-        property.setCoreLogicLink(r.get("Core_Logic_Link") != null ? r.get("Core_Logic_Link").toString() : null);
-        property.setPropertyVideoUrl(r.get("Youtube_Video_URL") != null ? r.get("Youtube_Video_URL").toString() : null);
+        String coreLogic = r.get("Core_Logic_Link") != null ? r.get("Core_Logic_Link").toString() : null;
+        property.setCoreLogicLink(coreLogic);
+        
+        // The user re-purposed the Core_Logic_Link field in Zoho CRM as the "Video Link" 
+        String youtubeUrl = r.get("Youtube_Video_URL") != null ? r.get("Youtube_Video_URL").toString() : null;
+        property.setPropertyVideoUrl(coreLogic != null && !coreLogic.trim().isEmpty() ? coreLogic : youtubeUrl);
         property.setAgentName(getNestedName(r, "Agent_Name"));
         property.setZohoCreatedAt(r.get("Created_Time") != null ? r.get("Created_Time").toString() : null);
         property.setZohoModifiedAt(r.get("Modified_Time") != null ? r.get("Modified_Time").toString() : null);
