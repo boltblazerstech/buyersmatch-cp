@@ -28,7 +28,7 @@ public class ClientPortalUserController {
             long totalOnboarded = clientPortalUserService.getAllPortalUsers(null).size();
             int limit = adminUser.getOnboardingLimit() != null ? adminUser.getOnboardingLimit() : 0;
             if (limit <= totalOnboarded) {
-                throw new IllegalStateException("Onboarding limit reached. Please purchase more credits to onboard additional clients.");
+                throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN, "Onboarding limit reached. Please purchase more credits to onboard additional clients.");
             }
         }
 

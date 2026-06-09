@@ -36,22 +36,22 @@ public class SuperAdminController {
     @GetMapping("/admins")
     public ResponseEntity<Map<String, Object>> getAdmins(HttpServletRequest request) {
         requireSuperAdmin(request);
-        long totalClients = clientPortalUserService.getAllPortalUsers(null).size();
 
-        List<Map<String, Object>> admins = adminUserRepository.findAll().stream()
+        List<Map<String, Object>> adminsList = adminUserRepository.findAll().stream()
                 .filter(a -> !Boolean.TRUE.equals(a.getIsSuperAdmin()))
                 .map(a -> {
-                    Map<String, Object> map = new java.util.HashMap<>();
-                    map.put("id", a.getId());
-                    map.put("email", a.getEmail());
-                    map.put("fullName", a.getFullName() != null ? a.getFullName() : "");
-                    map.put("onboardingLimit", a.getOnboardingLimit() != null ? a.getOnboardingLimit() : 0);
-                    map.put("totalOnboarded", totalClients);
-                    return map;
+                    long onboardedCount = clientPortalUserService.getAllPortalUsers(null).size();
+                    Map<String, Object> adminMap = new java.util.HashMap<>();
+                    adminMap.put("id", a.getId());
+                    adminMap.put("email", a.getEmail());
+                    adminMap.put("fullName", a.getFullName());
+                    adminMap.put("onboardingLimit", a.getOnboardingLimit() != null ? a.getOnboardingLimit() : 0);
+                    adminMap.put("totalOnboarded", onboardedCount);
+                    return adminMap;
                 })
                 .collect(Collectors.toList());
 
-        return ResponseEntity.ok(Map.of("success", true, "data", admins));
+        return ResponseEntity.ok(Map.of("success", true, "data", adminsList));
     }
 
     @PostMapping("/admins/{id}/limit")
