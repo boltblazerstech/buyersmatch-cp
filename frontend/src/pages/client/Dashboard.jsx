@@ -769,6 +769,7 @@ const Dashboard = () => {
             <PropertyTable
               properties={filteredProperties}
               onRowClick={(item) => navigate(`/property/${item.propertyId}`)}
+              selectable={true}
               compareList={compareList}
               onToggleCompare={toggleCompare}
             />

@@ -23,6 +23,7 @@ import {
   deactivatePortalUser,
   reactivatePortalUser,
 } from "../../api/client";
+import { getStoredUser } from "../../api/auth";
 import { Link } from "react-router-dom";
 import { useToast } from "../../components/Toast";
 
@@ -40,6 +41,7 @@ const ClientList = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("all");
+  const adminUser = getStoredUser("ADMIN");
 
   // Credentials modal (Active / Inactive)
   const [showCredentialsModal, setShowCredentialsModal] = useState(false);
@@ -178,6 +180,14 @@ const ClientList = () => {
 
   // ── Onboard modal ──────────────────────────────────────────────────────────
   const openOnboardModal = (client) => {
+    if (adminUser && !adminUser.isSuperAdmin) {
+      const totalOnboarded = clients.filter((c) => c.portalUser).length;
+      const limit = adminUser.onboardingLimit || 0;
+      if (limit <= totalOnboarded) {
+        toast("Onboarding limit reached. Please purchase more credits.", "error");
+        return;
+      }
+    }
     setOnboardingClient(client);
     setOnboardForm({ email: client.email || "", password: "" });
     setShowOnboardPwd(true);
@@ -252,6 +262,28 @@ const ClientList = () => {
   return (
     <AdminLayout title="Client Management">
       <div className="space-y-8">
+        {adminUser && !adminUser.isSuperAdmin && (
+          <div className="bg-[#1B2A4A] border border-teal/20 rounded-2xl p-4 flex items-center justify-between shadow-xl">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-teal/10 rounded-full flex items-center justify-center">
+                <UserPlus className="text-teal" size={20} />
+              </div>
+              <div>
+                <h3 className="text-white font-bold">Onboarding Limits</h3>
+                <p className="text-gray-400 text-xs">Manage your available credits</p>
+              </div>
+            </div>
+            <div className="flex flex-col items-end">
+              <div className="text-2xl font-black text-white">
+                {clients.filter((c) => c.portalUser).length} <span className="text-gray-500 text-lg">/ {adminUser.onboardingLimit || 0}</span>
+              </div>
+              <div className="text-xs text-teal font-bold uppercase tracking-wider">
+                Credits Used
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Control Bar */}
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
           <div className="bg-[#1B2A4A] p-1.5 rounded-2xl border border-white/5 flex gap-1">

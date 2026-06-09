@@ -12,4 +12,6 @@ public class AdminLoginResponse {
     private String email;
     private String fullName;
     private String sessionToken;
+    private Boolean isSuperAdmin;
+    private Integer onboardingLimit;
 }

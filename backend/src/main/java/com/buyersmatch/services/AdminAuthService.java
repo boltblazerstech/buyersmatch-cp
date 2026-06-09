@@ -40,6 +40,8 @@ public class AdminAuthService {
                 .email(admin.getEmail())
                 .fullName(admin.getFullName())
                 .sessionToken(sessionToken)
+                .isSuperAdmin(admin.getIsSuperAdmin())
+                .onboardingLimit(admin.getOnboardingLimit())
                 .build();
     }
 

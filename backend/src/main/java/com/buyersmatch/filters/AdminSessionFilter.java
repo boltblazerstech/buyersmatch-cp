@@ -43,7 +43,8 @@ public class AdminSessionFilter extends OncePerRequestFilter {
                                     FilterChain filterChain) throws ServletException, IOException {
         String token = request.getHeader("X-Admin-Token");
         try {
-            adminAuthService.validateSession(token);
+            com.buyersmatch.entities.AdminUser admin = adminAuthService.validateSession(token);
+            request.setAttribute("adminUser", admin);
             filterChain.doFilter(request, response);
         } catch (ResponseStatusException ex) {
             response.setStatus(ex.getStatusCode().value());

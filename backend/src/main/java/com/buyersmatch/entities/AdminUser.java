@@ -31,6 +31,14 @@ public class AdminUser {
     @Column(name = "full_name")
     private String fullName;
 
+    @Column(name = "is_super_admin")
+    @Builder.Default
+    private Boolean isSuperAdmin = false;
+
+    @Column(name = "onboarding_limit")
+    @Builder.Default
+    private Integer onboardingLimit = 0;
+
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "admin_user_sessions", joinColumns = @JoinColumn(name = "admin_user_id"))
     @Column(name = "session_token")

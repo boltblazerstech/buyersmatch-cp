@@ -19,7 +19,19 @@ public class ClientPortalUserController {
     private final ClientPortalUserService clientPortalUserService;
 
     @PostMapping("/onboard")
-    public ResponseEntity<Map<String, Object>> onboard(@Valid @RequestBody OnboardClientRequest request) {
+    public ResponseEntity<Map<String, Object>> onboard(
+            @Valid @RequestBody OnboardClientRequest request,
+            jakarta.servlet.http.HttpServletRequest httpRequest) {
+
+        com.buyersmatch.entities.AdminUser adminUser = (com.buyersmatch.entities.AdminUser) httpRequest.getAttribute("adminUser");
+        if (adminUser != null && !Boolean.TRUE.equals(adminUser.getIsSuperAdmin())) {
+            long totalOnboarded = clientPortalUserService.getAllPortalUsers(null).size();
+            int limit = adminUser.getOnboardingLimit() != null ? adminUser.getOnboardingLimit() : 0;
+            if (limit <= totalOnboarded) {
+                throw new IllegalStateException("Onboarding limit reached. Please purchase more credits to onboard additional clients.");
+            }
+        }
+
         ClientPortalUserResponse response = clientPortalUserService.onboardClient(request);
         return ResponseEntity.ok(Map.of("success", true, "data", response));
     }
@@ -50,7 +62,15 @@ public class ClientPortalUserController {
     }
 
     @DeleteMapping("/{buyerBriefId}")
-    public ResponseEntity<Map<String, Object>> unboard(@PathVariable UUID buyerBriefId) {
+    public ResponseEntity<Map<String, Object>> unboard(
+            @PathVariable UUID buyerBriefId,
+            jakarta.servlet.http.HttpServletRequest httpRequest) {
+
+        com.buyersmatch.entities.AdminUser adminUser = (com.buyersmatch.entities.AdminUser) httpRequest.getAttribute("adminUser");
+        if (adminUser != null && !Boolean.TRUE.equals(adminUser.getIsSuperAdmin())) {
+            throw new IllegalStateException("Standard admins cannot delete clients. You may only deactivate them.");
+        }
+
         clientPortalUserService.deletePortalUser(buyerBriefId);
         return ResponseEntity.ok(Map.of("success", true, "message", "Client unboarded successfully"));
     }

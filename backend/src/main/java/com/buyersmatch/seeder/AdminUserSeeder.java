@@ -18,8 +18,28 @@ public class AdminUserSeeder implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        String adminEmail = "info@buyersmatch.com.au";
+        String superAdminEmail = "boltblazers.tech@gmail.com";
 
+        if (adminUserRepository.findByEmail(superAdminEmail).isEmpty()) {
+            AdminUser superAdmin = AdminUser.builder()
+                    .email(superAdminEmail)
+                    .passwordHash(passwordEncoder.encode("Krishna?108"))
+                    .fullName("BoltBlazers Super Admin")
+                    .isSuperAdmin(true)
+                    .build();
+            adminUserRepository.save(superAdmin);
+            log.info("Super Admin user seeded: {}", superAdminEmail);
+        } else {
+            // Ensure they are marked as super admin if they already exist
+            AdminUser existing = adminUserRepository.findByEmail(superAdminEmail).get();
+            if (!Boolean.TRUE.equals(existing.getIsSuperAdmin())) {
+                existing.setIsSuperAdmin(true);
+                adminUserRepository.save(existing);
+                log.info("Super Admin user updated: {}", superAdminEmail);
+            }
+        }
+
+        String adminEmail = "info@buyersmatch.com.au";
         if (adminUserRepository.findByEmail(adminEmail).isEmpty()) {
             AdminUser admin = AdminUser.builder()
                     .email(adminEmail)

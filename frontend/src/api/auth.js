@@ -34,7 +34,14 @@ export const adminLogin = async (email, password) => {
   const { data: response } = await adminApi.post('/api/admin/auth/login', { email, password });
   const data = response.data;
   localStorage.setItem(STORAGE_KEYS.ADMIN_TOKEN, data.sessionToken);
-  const user = { id: data.adminId, email: data.email, fullName: data.fullName, role: 'ADMIN' };
+  const user = { 
+    id: data.adminId, 
+    email: data.email, 
+    fullName: data.fullName, 
+    role: 'ADMIN',
+    isSuperAdmin: data.isSuperAdmin,
+    onboardingLimit: data.onboardingLimit
+  };
   localStorage.setItem(STORAGE_KEYS.ADMIN_USER, JSON.stringify(user));
   return user;
 };

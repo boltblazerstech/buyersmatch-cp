@@ -260,7 +260,31 @@ const AdminPropertyDetail = () => {
           Back to Client
         </button>
 
-    
+        {isPurchased && (
+          <>
+            <div className="bg-navy border border-teal/30 rounded-3xl p-6 sm:p-8 mb-8 flex flex-col sm:flex-row items-center justify-between gap-6 relative overflow-hidden shadow-lg">
+              <div className="absolute inset-0 bg-gradient-to-r from-teal/5 to-transparent pointer-events-none" />
+              <div className="absolute -right-20 -top-20 w-64 h-64 bg-teal/10 rounded-full blur-3xl pointer-events-none" />
+              <div className="flex items-center gap-5 relative z-10">
+                <div className="w-16 h-16 rounded-2xl bg-teal/10 border border-teal/30 flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(42,191,191,0.2)]">
+                  <ShoppingBag size={28} className="text-teal" />
+                </div>
+                <div>
+                  <h2 className="text-2xl sm:text-3xl font-black text-white uppercase tracking-wider mb-1">
+                    Acquisition Finalized
+                  </h2>
+                  <p className="text-teal font-bold text-sm sm:text-base tracking-widest uppercase">
+                    Congratulations! This deal is officially complete and secured!
+                  </p>
+                </div>
+              </div>
+              <div className="px-8 py-3 bg-teal text-navy font-black text-sm rounded-xl shadow-[0_4px_20px_rgba(42,191,191,0.3)] tracking-widest uppercase hover:scale-105 transition-transform duration-300 shrink-0 z-10">
+                ⭐ Purchase Complete
+              </div>
+            </div>
+          </>
+        )}
+
         <DealProgress assignment={assignment} />
 
         <div className="space-y-12">

@@ -87,7 +87,7 @@ export const updateAssignmentAgentNotes = async (assignmentId, agentNotes) => {
     return { id: assignmentId, agentNotes };
   }
   const { data } = await adminApi.post(`/api/admin/assignment/${assignmentId}/agent-notes`, { agentNotes });
-  return data.data;
+  return data.data || data;
 };
 
 /** POST /api/admin/assign-property */
@@ -242,4 +242,34 @@ export const markNotificationRead = async (notificationId) => {
 export const markAllNotificationsRead = async (userId) => {
   mockNotifications.filter(n => n.userId === userId).forEach(n => n.read = true);
   return { success: true };
+};
+
+// ============================================================================
+// SUPER ADMIN ENDPOINTS
+// ============================================================================
+
+export const getSuperAdminStats = async () => {
+  if (USE_MOCK) {
+    return { admins: [{ id: 'mock', email: 'admin@mock.com', onboardingLimit: 10, totalOnboarded: 2 }] };
+  }
+  const { data } = await adminApi.get('/api/super-admin/admins');
+  return data.data;
+};
+
+export const updateAdminLimit = async (adminId, newLimit) => {
+  if (USE_MOCK) return { success: true };
+  const { data } = await adminApi.post(/api/super-admin/admins/ + adminId + /limit, { newLimit });
+  return data;
+};
+
+export const superAdminOffboardClient = async (buyerBriefId) => {
+  if (USE_MOCK) return { success: true };
+  const { data } = await adminApi.delete(/api/super-admin/clients/ + buyerBriefId + /offboard);
+  return data;
+};
+
+export const superAdminOnboardClient = async (onboardData) => {
+  if (USE_MOCK) return { success: true };
+  const { data } = await adminApi.post('/api/super-admin/clients/onboard', onboardData);
+  return data.data || data;
 };

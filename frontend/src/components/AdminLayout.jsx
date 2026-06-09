@@ -295,6 +295,15 @@ const AdminLayout = ({ children, title }) => {
             onDone={loadSyncStatus}
           />
 
+          {user?.isSuperAdmin && (
+            <Link
+              to="/super-admin"
+              className="flex items-center gap-2 px-4 py-2 bg-orange-500/10 border border-orange-500/30 text-orange-400 rounded-xl hover:bg-orange-500 hover:text-white transition-all font-bold uppercase tracking-widest text-[10px]"
+            >
+              <span className="hidden sm:inline">Super Admin</span>
+            </Link>
+          )}
+
           <button
             onClick={handleLogout}
             className="flex items-center gap-2 px-4 py-2 bg-red-500/10 border border-red-500/30 text-red-400 rounded-xl hover:bg-red-500 hover:text-white transition-all font-bold uppercase tracking-widest text-[10px]"

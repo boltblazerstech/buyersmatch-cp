@@ -21,6 +21,7 @@ import ClientList from "./pages/admin/ClientList";
 import ClientDetail from "./pages/admin/ClientDetail";
 import AdminPropertyDetail from "./pages/admin/AdminPropertyDetail";
 import Responses from "./pages/admin/Responses";
+import SuperAdminDashboard from "./pages/admin/SuperAdminDashboard";
 
 function HostRedirect() {
   const navigate = useNavigate();
@@ -156,6 +157,15 @@ function App() {
           <Route
             path="/admin/buyer-briefs"
             element={<Navigate to="/admin/buyers" replace />}
+          />
+
+          <Route
+            path="/super-admin"
+            element={
+              <ProtectedRoute role="ADMIN">
+                <SuperAdminDashboard />
+              </ProtectedRoute>
+            }
           />
 
           {/* Fallback */}
