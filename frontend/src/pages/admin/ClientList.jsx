@@ -275,7 +275,7 @@ const ClientList = () => {
             </div>
             <div className="flex flex-col items-end">
               <div className="text-2xl font-black text-white">
-                {Math.max(0, (adminUser?.onboardingLimit || 0) - clients.filter((c) => c.portalUser).length)} <span className="text-gray-500 text-lg">/ {adminUser?.onboardingLimit || 0}</span>
+                {adminUser?.onboardingLimit || 0}
               </div>
               <div className="text-xs text-teal font-bold uppercase tracking-wider">
                 Credits Remaining
