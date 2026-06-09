@@ -41,7 +41,7 @@ const ClientList = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("all");
-  const adminUser = getStoredUser("ADMIN");
+  const [adminUser, setAdminUser] = useState(() => getStoredUser("ADMIN"));
 
   // Credentials modal (Active / Inactive)
   const [showCredentialsModal, setShowCredentialsModal] = useState(false);
@@ -220,6 +220,15 @@ const ClientList = () => {
             : c,
         ),
       );
+      
+      // DECREMENT LIMIT LOCALLY
+      if (adminUser) {
+        const newLimit = Math.max(0, (adminUser.onboardingLimit || 0) - 1);
+        const updatedUser = { ...adminUser, onboardingLimit: newLimit };
+        setAdminUser(updatedUser);
+        localStorage.setItem("bm_admin_user", JSON.stringify(updatedUser));
+      }
+
       setShowOnboardModal(false);
       toast(`${onboardingClient.fullName} onboarded successfully!`);
     } catch (err) {
