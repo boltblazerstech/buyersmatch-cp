@@ -216,7 +216,7 @@ const ComparisonModal = ({ properties, onClose }) => {
         </div>
         <div className="flex-1 overflow-auto p-4 md:p-6">
           <div className="grid grid-cols-[120px_repeat(auto-fit,minmax(180px,1fr))] md:grid-cols-[150px_repeat(auto-fit,minmax(200px,1fr))] gap-3 md:gap-4 min-w-[600px] md:min-w-[800px]">
-            <div className="space-y-3 md:space-y-4 pt-[140px] md:pt-[200px]">
+            <div className="space-y-3 md:space-y-4 pt-2">
               {[
                 "Address",
                 "Price Range",
@@ -237,17 +237,7 @@ const ComparisonModal = ({ properties, onClose }) => {
               ))}
             </div>
             {properties.map((item) => (
-              <div key={item.id} className="space-y-3 md:space-y-4">
-                <div className="h-[120px] md:h-[180px] rounded-xl md:rounded-2xl overflow-hidden border border-teal/20 mb-2 md:mb-4">
-                  <img
-                    src={
-                      item.firstImage ||
-                      `https://placehold.co/400x300/1B2A4A/2ABFBF?text=IMG`
-                    }
-                    className="w-full h-full object-cover"
-                    referrerPolicy="no-referrer"
-                  />
-                </div>
+              <div key={item.id} className="space-y-3 md:space-y-4 pt-2">
                 <div className="h-10 md:h-12 flex items-center text-xs md:text-sm font-bold text-white truncate px-1 md:px-2">
                   {item.property.addressLine1}
                 </div>

@@ -51,16 +51,16 @@ const PropertyTable = ({
                   )}
                   <td className="px-6 py-4">
                     <div>
-                      <div className="flex items-start gap-2 flex-wrap">
-                        <p className="text-white font-bold text-sm">{item.property.addressLine1}</p>
+                      <p className="text-white font-bold text-sm">{item.property.addressLine1}</p>
+                      <p className="text-teal text-xs mt-0.5">
+                        {[item.property.suburb, item.property.state].filter(Boolean).join(", ")}
+                      </p>
+                      <div className="flex items-center gap-2 mt-2 flex-wrap">
                         {isPurchasedItem(item) && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-gold/20 border border-gold/40 text-gold text-[8px] font-bold rounded-full tracking-widest shrink-0 mt-0.5">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-gold/20 border border-gold/40 text-gold text-[8px] font-bold rounded-full tracking-widest shrink-0">
                             <ShoppingBag size={8} /> PURCHASED
                           </span>
                         )}
-                      </div>
-                      <p className="text-teal text-xs mt-0.5">{item.property.suburb}, {item.property.state}</p>
-                      <div className="flex items-center gap-2 mt-2 flex-wrap">
                         {isOffMarket && (
                           <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-purple-500/20 border border-purple-400/40 text-purple-300 text-[8px] font-bold rounded tracking-widest shrink-0">
                             <Lock size={8} /> OFF MARKET

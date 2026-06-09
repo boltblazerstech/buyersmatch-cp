@@ -318,7 +318,7 @@ const ClientList = () => {
                   <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">
                     Status
                   </th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest text-right pr-8">
+                  <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest text-right pr-8 sticky right-0 bg-[#243454] border-l border-white/5 shadow-[-10px_0_15px_-3px_rgba(0,0,0,0.1)] z-10">
                     Actions
                   </th>
                 </tr>
@@ -409,7 +409,7 @@ const ClientList = () => {
                       <td className="px-6 py-4">{statusBadge(client)}</td>
 
                       {/* Actions */}
-                      <td className="px-6 py-4 text-right pr-8">
+                      <td className="px-6 py-4 text-right pr-8 sticky right-0 bg-[#1B2A4A] border-l border-white/5 shadow-[-10px_0_15px_-3px_rgba(0,0,0,0.1)]">
                         {!client.portalUser ? (
                           /* Unboarded — onboard button */
                           <button

@@ -321,16 +321,6 @@ const DealProgress = ({ assignment }) => {
                           : { background: 'rgba(255,255,255,0.08)' }
                         }
                       />
-                      {showRunner && (
-                        <div className="animate-stage-progress z-20">
-                          <img
-                            src="/character.png"
-                            className="w-10 h-10 object-contain animate-person-bounce"
-                            alt="Progress"
-                          />
-                          <div className="w-4 h-1 bg-black/40 rounded-full blur-[2px] -mt-1" />
-                        </div>
-                      )}
                     </div>
                   </div>
 
