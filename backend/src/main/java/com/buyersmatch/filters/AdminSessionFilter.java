@@ -31,7 +31,7 @@ public class AdminSessionFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
-        if (!path.startsWith("/api/admin/")) {
+        if (!path.startsWith("/api/admin/") && !path.startsWith("/api/super-admin/")) {
             return true;
         }
         return PUBLIC_ADMIN_PATHS.contains(path);
