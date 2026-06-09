@@ -962,17 +962,7 @@ const AdminPropertyDetail = () => {
             />
           </div> */}
 
-          {/* 8. Property Notes */}
-          <div className="bg-navy border border-teal/10 rounded-3xl p-8">
-            <div className="flex items-center gap-3 mb-6">
-              <FileText className="text-teal" size={24} />
-              <h3 className="text-xl font-bold text-white">My Notes</h3>
-            </div>
-            <p className="text-gray-400 leading-relaxed">
-              {property.notes ||
-                "No additional notes available for this property at this time."}
-            </p>
-          </div>
+
         </div>
       </div>
 
