@@ -22,6 +22,7 @@ import ClientDetail from "./pages/admin/ClientDetail";
 import AdminPropertyDetail from "./pages/admin/AdminPropertyDetail";
 import Responses from "./pages/admin/Responses";
 import SuperAdminDashboard from "./pages/admin/SuperAdminDashboard";
+import SuperAdminLogin from "./pages/admin/SuperAdminLogin";
 
 function HostRedirect() {
   const navigate = useNavigate();
@@ -160,12 +161,27 @@ function App() {
           />
 
           <Route
-            path="/super-admin"
+            path="/super-admin/login"
+            element={<SuperAdminLogin />}
+          />
+
+          <Route
+            path="/super-admin/dashboard"
+            element={<Navigate to="/super-admin/clients" replace />}
+          />
+
+          <Route
+            path="/super-admin/clients"
             element={
-              <ProtectedRoute role="ADMIN">
+              <ProtectedRoute role="SUPER_ADMIN">
                 <SuperAdminDashboard />
               </ProtectedRoute>
             }
+          />
+          
+          <Route
+            path="/super-admin"
+            element={<Navigate to="/super-admin/clients" replace />}
           />
 
           {/* Fallback */}

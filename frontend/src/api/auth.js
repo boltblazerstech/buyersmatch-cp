@@ -1,4 +1,4 @@
-import { api, adminApi, USE_MOCK, delay, STORAGE_KEYS } from './http';
+import { api, adminApi, superAdminApi, USE_MOCK, delay, STORAGE_KEYS } from './http';
 import { mockUsers } from '../mock/data';
 
 // ─── Client Login ─────────────────────────────────────────────────
@@ -55,7 +55,43 @@ export const adminLogout = async () => {
   localStorage.removeItem(STORAGE_KEYS.ADMIN_USER);
 };
 
-// ─── Admin Change Password ────────────────────────────────────────
+// ============================================================================
+// SUPER ADMIN LOGIN
+// ============================================================================
+
+export const superAdminLogin = async (email, password) => {
+  if (USE_MOCK) {
+    await delay();
+    return { id: 'mock', email, role: 'SUPER_ADMIN', isSuperAdmin: true };
+  }
+  // We use the normal public api to login or superAdminApi without token
+  const { data: response } = await api.post('/api/admin/auth/login', { email, password });
+  const data = response.data;
+  if (!data.isSuperAdmin) {
+    throw new Error('Access Denied: Not a super admin');
+  }
+  localStorage.setItem(STORAGE_KEYS.SUPER_ADMIN_TOKEN, data.sessionToken);
+  const user = { 
+    id: data.adminId, 
+    email: data.email, 
+    fullName: data.fullName, 
+    role: 'SUPER_ADMIN',
+    isSuperAdmin: true,
+  };
+  localStorage.setItem(STORAGE_KEYS.SUPER_ADMIN_USER, JSON.stringify(user));
+  return user;
+};
+
+export const superAdminLogout = async () => {
+  if (!USE_MOCK) {
+    try { await superAdminApi.post('/api/admin/auth/logout'); } catch (_) { /* best effort */ }
+  }
+  localStorage.removeItem(STORAGE_KEYS.SUPER_ADMIN_TOKEN);
+  localStorage.removeItem(STORAGE_KEYS.SUPER_ADMIN_USER);
+};
+
+// ============================================================================
+// Admin Change Password ────────────────────────────────────────
 export const changeAdminPassword = async (currentPassword, newPassword) => {
   if (USE_MOCK) { await delay(); return { success: true }; }
   const { data } = await adminApi.patch('/api/admin/auth/change-password', { currentPassword, newPassword });
@@ -69,6 +105,9 @@ export const logout = async () => {
 
 // ─── Helpers ──────────────────────────────────────────────────────
 export const getStoredUser = (rolePreference = null) => {
+  if (rolePreference === 'SUPER_ADMIN') {
+    return JSON.parse(localStorage.getItem(STORAGE_KEYS.SUPER_ADMIN_USER));
+  }
   if (rolePreference === 'ADMIN') {
     return JSON.parse(localStorage.getItem(STORAGE_KEYS.ADMIN_USER));
   }
@@ -76,5 +115,7 @@ export const getStoredUser = (rolePreference = null) => {
     return JSON.parse(localStorage.getItem(STORAGE_KEYS.CLIENT_USER));
   }
   // Default to client if no preference
-  return JSON.parse(localStorage.getItem(STORAGE_KEYS.CLIENT_USER)) || JSON.parse(localStorage.getItem(STORAGE_KEYS.ADMIN_USER));
+  return JSON.parse(localStorage.getItem(STORAGE_KEYS.CLIENT_USER)) || 
+         JSON.parse(localStorage.getItem(STORAGE_KEYS.ADMIN_USER)) ||
+         JSON.parse(localStorage.getItem(STORAGE_KEYS.SUPER_ADMIN_USER));
 };

@@ -1,16 +1,17 @@
 import React, { useEffect, useState } from "react";
-import AdminLayout from "../../components/AdminLayout";
-import { getSuperAdminStats, updateAdminLimit, superAdminOffboardClient, superAdminOnboardClient } from "../../api/admin";
+import SuperAdminLayout from "../../components/SuperAdminLayout";
+import { getSuperAdminStats, updateAdminLimit, superAdminOffboardClient, superAdminOnboardClient, superAdminGetAllBuyerBriefs } from "../../api/admin";
 import { getStoredUser } from "../../api/auth";
 import { useToast } from "../../components/Toast";
-import { ShieldAlert, Trash2, PlusCircle, Save, Loader2, Check } from "lucide-react";
+import { ShieldAlert, Trash2, UserPlus, Save, Loader2, UserMinus } from "lucide-react";
 import { Navigate } from "react-router-dom";
 
 const SuperAdminDashboard = () => {
-  const adminUser = getStoredUser("ADMIN");
+  const adminUser = getStoredUser("SUPER_ADMIN");
   const toast = useToast();
   
   const [admins, setAdmins] = useState([]);
+  const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState(null);
 
@@ -27,24 +28,28 @@ const SuperAdminDashboard = () => {
 
   const loadData = async () => {
     try {
-      const data = await getSuperAdminStats();
-      setAdmins(data.admins || data); // Depending on response structure
+      const [adminData, clientData] = await Promise.all([
+        getSuperAdminStats(),
+        superAdminGetAllBuyerBriefs()
+      ]);
+      setAdmins(adminData.admins || adminData);
+      setClients(clientData || []);
     } catch (err) {
-      toast("Failed to load super admin stats", "error");
+      toast("Failed to load super admin data", "error");
     } finally {
       setLoading(false);
     }
   };
 
   if (!adminUser?.isSuperAdmin) {
-    return <Navigate to="/admin" replace />;
+    return <Navigate to="/super-admin/login" replace />;
   }
 
   if (loading) {
     return (
-      <AdminLayout title="Super Admin Dashboard">
-        <div className="flex justify-center py-20"><Loader2 className="animate-spin text-teal" size={40} /></div>
-      </AdminLayout>
+      <SuperAdminLayout title="Super Admin Dashboard">
+        <div className="flex justify-center py-20"><Loader2 className="animate-spin text-orange-500" size={40} /></div>
+      </SuperAdminLayout>
     );
   }
 
@@ -73,8 +78,42 @@ const SuperAdminDashboard = () => {
     }
   };
 
+  const handleOnboardClient = async (client) => {
+    if (!window.confirm(`Are you sure you want to manually onboard ${client.fullName}?`)) return;
+    setUpdatingId(client.id);
+    try {
+      const password = Math.random().toString(36).slice(-8); // Generate random password
+      await superAdminOnboardClient({
+        buyerBriefId: client.id,
+        fullName: client.fullName,
+        email: client.email,
+        password: password
+      });
+      toast(`${client.fullName} onboarded manually!`);
+      await loadData();
+    } catch (err) {
+      toast(err.message || "Failed to onboard client", "error");
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const handleOffboardClient = async (client) => {
+    if (!window.confirm(`WARNING: Offboarding ${client.fullName} will permanently remove their access. Proceed?`)) return;
+    setUpdatingId(client.id);
+    try {
+      await superAdminOffboardClient(client.id);
+      toast(`${client.fullName} offboarded.`);
+      await loadData();
+    } catch (err) {
+      toast(err.message || "Failed to offboard client", "error");
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
   return (
-    <AdminLayout title="Super Admin Dashboard">
+    <SuperAdminLayout title="Super Admin Dashboard">
       <div className="space-y-8">
         
         <div className="bg-orange-500/10 border border-orange-500/20 rounded-2xl p-4 flex gap-4">
@@ -82,7 +121,7 @@ const SuperAdminDashboard = () => {
           <div>
             <h3 className="text-orange-500 font-bold">Super Admin Access</h3>
             <p className="text-orange-400/80 text-sm">
-              You have elevated privileges. Changes made here directly impact the billing limits of the platform admins.
+              You have elevated privileges. You can manage billing limits and force onboard/offboard clients.
             </p>
           </div>
         </div>
@@ -135,8 +174,66 @@ const SuperAdminDashboard = () => {
           </div>
         </div>
 
+        <div>
+          <h2 className="text-xl font-bold text-white mb-4 mt-8">All Platform Clients</h2>
+          <div className="bg-[#1B2A4A] border border-white/5 rounded-2xl overflow-hidden">
+            <table className="w-full text-left">
+              <thead className="bg-white/5 border-b border-white/10">
+                <tr>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Client Name</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Email</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest text-center">Status</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {clients.map(client => {
+                  const isOnboarded = client.onboarded || client.portalUser != null;
+                  return (
+                    <tr key={client.id}>
+                      <td className="px-6 py-4 text-white font-medium">{client.fullName || client.dealName}</td>
+                      <td className="px-6 py-4 text-gray-400">{client.email}</td>
+                      <td className="px-6 py-4 text-center">
+                        {isOnboarded ? (
+                          <span className="px-2 py-1 bg-green-500/10 text-green-400 rounded-lg text-xs font-bold uppercase">Active</span>
+                        ) : (
+                          <span className="px-2 py-1 bg-gray-500/10 text-gray-400 rounded-lg text-xs font-bold uppercase">Unboarded</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        {isOnboarded ? (
+                          <button
+                            onClick={() => handleOffboardClient(client)}
+                            disabled={updatingId === client.id}
+                            className="px-3 py-1.5 bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white rounded-lg text-xs font-bold transition-all disabled:opacity-50 inline-flex items-center gap-1.5"
+                          >
+                            {updatingId === client.id ? <Loader2 className="animate-spin" size={14} /> : <UserMinus size={14} />} Offboard
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleOnboardClient(client)}
+                            disabled={updatingId === client.id}
+                            className="px-3 py-1.5 bg-teal/10 border border-teal/20 text-teal hover:bg-teal hover:text-navy rounded-lg text-xs font-bold transition-all disabled:opacity-50 inline-flex items-center gap-1.5"
+                          >
+                            {updatingId === client.id ? <Loader2 className="animate-spin" size={14} /> : <UserPlus size={14} />} Onboard
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+                {clients.length === 0 && (
+                  <tr>
+                    <td colSpan="4" className="px-6 py-8 text-center text-gray-500">No clients found in system.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
       </div>
-    </AdminLayout>
+    </SuperAdminLayout>
   );
 };
 

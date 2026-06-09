@@ -17,6 +17,8 @@ export const STORAGE_KEYS = {
   CLIENT_USER: 'bm_client_user',
   ADMIN_USER: 'bm_admin_user',
   ADMIN_TOKEN: 'bm_admin_token',
+  SUPER_ADMIN_USER: 'bm_super_admin_user',
+  SUPER_ADMIN_TOKEN: 'bm_super_admin_token',
 };
 
 // ─── Public API Instance (Client Portal, Properties, Auth) ────────
@@ -33,6 +35,20 @@ export const adminApi = axios.create({
 
 adminApi.interceptors.request.use(config => {
   const token = localStorage.getItem(STORAGE_KEYS.ADMIN_TOKEN);
+  if (token) {
+    config.headers['X-Admin-Token'] = token;
+  }
+  return config;
+});
+
+// ─── Super Admin API Instance ─────────────────────────────────────
+export const superAdminApi = axios.create({
+  baseURL: BASE_URL,
+  headers: { 'Content-Type': 'application/json' },
+});
+
+superAdminApi.interceptors.request.use(config => {
+  const token = localStorage.getItem(STORAGE_KEYS.SUPER_ADMIN_TOKEN);
   if (token) {
     config.headers['X-Admin-Token'] = token;
   }

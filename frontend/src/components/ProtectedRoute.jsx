@@ -2,14 +2,21 @@ import React from 'react';
 import { Navigate } from 'react-router-dom';
 
 const ProtectedRoute = ({ children, role }) => {
-  const isClient = role === 'CLIENT';
-  const isAdmin = role === 'ADMIN';
+  let storageKey = 'bm_client_user';
+  let loginRoute = '/login';
+  
+  if (role === 'ADMIN') {
+    storageKey = 'bm_admin_user';
+    loginRoute = '/admin/login';
+  } else if (role === 'SUPER_ADMIN') {
+    storageKey = 'bm_super_admin_user';
+    loginRoute = '/super-admin/login';
+  }
 
-  // Specific storage check based on required role
-  const userStr = localStorage.getItem(isAdmin ? 'bm_admin_user' : 'bm_client_user');
+  const userStr = localStorage.getItem(storageKey);
 
   if (!userStr) {
-    return <Navigate to={isAdmin ? "/admin/login" : "/login"} replace />;
+    return <Navigate to={loginRoute} replace />;
   }
 
   const user = JSON.parse(userStr);
@@ -17,7 +24,10 @@ const ProtectedRoute = ({ children, role }) => {
   const requiredRole = role?.toUpperCase();
 
   if (requiredRole && userRole !== requiredRole) {
-    return <Navigate to={userRole === 'ADMIN' ? '/admin/dashboard' : '/dashboard'} replace />;
+    let redirect = '/dashboard';
+    if (userRole === 'ADMIN') redirect = '/admin/dashboard';
+    if (userRole === 'SUPER_ADMIN') redirect = '/super-admin/dashboard';
+    return <Navigate to={redirect} replace />;
   }
 
   return children;
