@@ -273,3 +273,9 @@ export const superAdminOnboardClient = async (onboardData) => {
   const { data } = await superAdminApi.post('/api/super-admin/clients/onboard', onboardData);
   return data.data || data;
 };
+
+export const superAdminGetAllBuyerBriefs = async () => {
+  if (USE_MOCK) return getAllBuyerBriefs();
+  const { data } = await superAdminApi.get('/api/admin/buyer-briefs');
+  return data.data;
+};
