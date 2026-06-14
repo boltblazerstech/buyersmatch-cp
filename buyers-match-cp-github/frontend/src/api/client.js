@@ -43,6 +43,7 @@ export {
   triggerSync,
   refreshClientSync,
   refreshClientMediaSync,
+  getAdminMe,
 } from './admin';
 
 // Client Portal — Briefs, Assignments & Actions

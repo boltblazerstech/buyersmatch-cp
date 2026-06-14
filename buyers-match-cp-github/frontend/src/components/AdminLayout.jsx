@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import { LogOut, RefreshCw, X, CheckCircle2 } from "lucide-react";
-import { adminLogout, getStoredUser } from "../api/client";
+import { adminLogout, getStoredUser, getAdminMe } from "../api/client";
+import { STORAGE_KEYS } from "../api/http";
 import logo from "../assets/bm-logo-white-text-1B2A4A.jpg";
 
 // Backend stores LocalDateTime (no TZ) in UTC — append Z so JS parses as UTC, then convert to Brisbane (UTC+10)
@@ -219,7 +220,7 @@ const SyncButton = ({
 const AdminLayout = ({ children, title }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const user = getStoredUser("ADMIN");
+  const [user, setUser] = useState(() => getStoredUser("ADMIN"));
   const [syncStatus, setSyncStatus] = useState({});
 
   const loadSyncStatus = async (directMap) => {
@@ -236,6 +237,30 @@ const AdminLayout = ({ children, title }) => {
   useEffect(() => {
     loadSyncStatus();
     const id = setInterval(loadSyncStatus, 60000);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    const refreshAdminUser = async () => {
+      try {
+        const freshData = await getAdminMe();
+        if (!freshData) return;
+        const stored = getStoredUser("ADMIN");
+        const updated = {
+          ...stored,
+          email: freshData.email,
+          fullName: freshData.fullName,
+          isSuperAdmin: freshData.isSuperAdmin,
+          onboardingLimit: freshData.onboardingLimit,
+        };
+        localStorage.setItem(STORAGE_KEYS.ADMIN_USER, JSON.stringify(updated));
+        setUser(updated);
+        window.dispatchEvent(new CustomEvent("bm:adminUserRefreshed", { detail: updated }));
+      } catch { /* silent — session may have expired, interceptor handles redirect */ }
+    };
+
+    refreshAdminUser();
+    const id = setInterval(refreshAdminUser, 30000);
     return () => clearInterval(id);
   }, []);
 

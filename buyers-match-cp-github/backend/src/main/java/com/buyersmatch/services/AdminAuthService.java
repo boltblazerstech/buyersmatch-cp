@@ -131,6 +131,17 @@ public class AdminAuthService {
         return Map.of("email", admin.getEmail());
     }
 
+    public Map<String, Object> getAdminMe(String sessionToken) {
+        AdminUser admin = validateSession(sessionToken);
+        return Map.of(
+                "adminId", admin.getId().toString(),
+                "email", admin.getEmail(),
+                "fullName", admin.getFullName() != null ? admin.getFullName() : "",
+                "isSuperAdmin", admin.getIsSuperAdmin() != null ? admin.getIsSuperAdmin() : false,
+                "onboardingLimit", admin.getOnboardingLimit() != null ? admin.getOnboardingLimit() : 0
+        );
+    }
+
     @Transactional
     public void resetAdminPassword(String token, String newPassword) {
         AdminUser admin = adminUserRepository.findByPasswordResetToken(token)

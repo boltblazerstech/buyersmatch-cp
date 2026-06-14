@@ -279,3 +279,9 @@ export const superAdminGetAllBuyerBriefs = async () => {
   const { data } = await superAdminApi.get('/api/admin/buyer-briefs');
   return data.data;
 };
+
+export const getAdminMe = async () => {
+  if (USE_MOCK) return null;
+  const { data } = await adminApi.get('/api/admin/auth/me');
+  return data.data;
+};

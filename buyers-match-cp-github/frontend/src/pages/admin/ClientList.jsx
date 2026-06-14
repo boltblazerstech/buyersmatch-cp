@@ -69,6 +69,14 @@ const ClientList = () => {
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    const handleAdminUserRefreshed = (e) => {
+      if (e.detail) setAdminUser(e.detail);
+    };
+    window.addEventListener("bm:adminUserRefreshed", handleAdminUserRefreshed);
+    return () => window.removeEventListener("bm:adminUserRefreshed", handleAdminUserRefreshed);
+  }, []);
+
   // ── Filtering ──────────────────────────────────────────────────────────────
   const filtered = clients.filter((c) => {
     const name = (c.fullName || "").toLowerCase();
@@ -221,14 +229,6 @@ const ClientList = () => {
         ),
       );
       
-      // DECREMENT LIMIT LOCALLY
-      if (adminUser) {
-        const newLimit = Math.max(0, (adminUser.onboardingLimit || 0) - 1);
-        const updatedUser = { ...adminUser, onboardingLimit: newLimit };
-        setAdminUser(updatedUser);
-        localStorage.setItem("bm_admin_user", JSON.stringify(updatedUser));
-      }
-
       setShowOnboardModal(false);
       toast(`${onboardingClient.fullName} onboarded successfully!`);
     } catch (err) {
@@ -284,7 +284,7 @@ const ClientList = () => {
             </div>
             <div className="flex flex-col items-end">
               <div className="text-2xl font-black text-white">
-                {adminUser?.onboardingLimit || 0}
+                {Math.max(0, (adminUser?.onboardingLimit || 0) - clients.filter(c => c.portalUser).length)}
               </div>
               <div className="text-xs text-teal font-bold uppercase tracking-wider">
                 Credits Remaining

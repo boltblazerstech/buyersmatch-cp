@@ -45,6 +45,12 @@ public class AdminAuthController {
     // FORGOT / RESET PASSWORD — admin
     // -------------------------------------------------------------------------
 
+    @GetMapping("/me")
+    public ResponseEntity<Map<String, Object>> getMe(
+            @RequestHeader("X-Admin-Token") String sessionToken) {
+        return ResponseEntity.ok(Map.of("success", true, "data", adminAuthService.getAdminMe(sessionToken)));
+    }
+
     @PostMapping("/forgot-password")
     public ResponseEntity<Map<String, Object>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
         adminAuthService.requestAdminPasswordReset(request.getEmail());
