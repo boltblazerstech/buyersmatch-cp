@@ -1,0 +1,167 @@
+import { api, adminApi, superAdminApi, USE_MOCK, delay, STORAGE_KEYS } from './http';
+import { mockUsers } from '../mock/data';
+
+// ─── Client Login ─────────────────────────────────────────────────
+export const login = async (email, password) => {
+  if (USE_MOCK) {
+    await delay();
+    const user = mockUsers.find(u => u.email === email && u.password === password);
+    if (user) {
+      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+      return user;
+    }
+    throw new Error('Invalid credentials');
+  }
+  const { data: response } = await api.post('/api/auth/login', { email, password });
+  const data = response.data;
+  localStorage.setItem(STORAGE_KEYS.CLIENT_USER, JSON.stringify(data));
+  return data;
+};
+
+// ─── Admin-specific Login ─────────────────────────────────────────
+// Stores the sessionToken in localStorage so adminApi interceptor picks it up.
+export const adminLogin = async (email, password) => {
+  if (USE_MOCK) {
+    await delay();
+    const user = mockUsers.find(u => u.email === email && u.password === password && u.role === 'ADMIN');
+    if (user) {
+      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+      localStorage.setItem(STORAGE_KEYS.ADMIN_TOKEN, 'mock-admin-token');
+      return user;
+    }
+    throw new Error('Invalid admin credentials');
+  }
+  const { data: response } = await adminApi.post('/api/admin/auth/login', { email, password });
+  const data = response.data;
+  localStorage.setItem(STORAGE_KEYS.ADMIN_TOKEN, data.sessionToken);
+  const user = { 
+    id: data.adminId, 
+    email: data.email, 
+    fullName: data.fullName, 
+    role: 'ADMIN',
+    isSuperAdmin: data.isSuperAdmin,
+    onboardingLimit: data.onboardingLimit
+  };
+  localStorage.setItem(STORAGE_KEYS.ADMIN_USER, JSON.stringify(user));
+  return user;
+};
+
+// ─── Admin Logout ─────────────────────────────────────────────────
+export const adminLogout = async () => {
+  if (!USE_MOCK) {
+    try { await adminApi.post('/api/admin/auth/logout'); } catch (_) { /* best effort */ }
+  }
+  localStorage.removeItem(STORAGE_KEYS.ADMIN_TOKEN);
+  localStorage.removeItem(STORAGE_KEYS.ADMIN_USER);
+};
+
+// ============================================================================
+// SUPER ADMIN LOGIN
+// ============================================================================
+
+export const superAdminLogin = async (email, password) => {
+  if (USE_MOCK) {
+    await delay();
+    return { id: 'mock', email, role: 'SUPER_ADMIN', isSuperAdmin: true };
+  }
+  // We use the normal public api to login or superAdminApi without token
+  const { data: response } = await api.post('/api/admin/auth/login', { email, password });
+  const data = response.data;
+  if (!data.isSuperAdmin) {
+    throw new Error('Access Denied: Not a super admin');
+  }
+  localStorage.setItem(STORAGE_KEYS.SUPER_ADMIN_TOKEN, data.sessionToken);
+  const user = { 
+    id: data.adminId, 
+    email: data.email, 
+    fullName: data.fullName, 
+    role: 'SUPER_ADMIN',
+    isSuperAdmin: true,
+  };
+  localStorage.setItem(STORAGE_KEYS.SUPER_ADMIN_USER, JSON.stringify(user));
+  return user;
+};
+
+export const superAdminLogout = async () => {
+  if (!USE_MOCK) {
+    try { await superAdminApi.post('/api/admin/auth/logout'); } catch (_) { /* best effort */ }
+  }
+  localStorage.removeItem(STORAGE_KEYS.SUPER_ADMIN_TOKEN);
+  localStorage.removeItem(STORAGE_KEYS.SUPER_ADMIN_USER);
+};
+
+// ============================================================================
+// Admin Change Password ────────────────────────────────────────
+export const changeAdminPassword = async (currentPassword, newPassword) => {
+  if (USE_MOCK) { await delay(); return { success: true }; }
+  const { data } = await adminApi.patch('/api/admin/auth/change-password', { currentPassword, newPassword });
+  return data;
+};
+
+// ─── Client Logout (stateless — just clears local storage) ────────
+export const logout = async () => {
+  localStorage.removeItem(STORAGE_KEYS.CLIENT_USER);
+};
+
+// ─── Client Forgot / Reset Password ──────────────────────────────
+
+export const forgotPassword = async (email) => {
+  const { data } = await api.post('/api/auth/forgot-password', { email });
+  return data;
+};
+
+export const verifyResetToken = async (token) => {
+  const { data } = await api.get('/api/auth/verify-reset-token', { params: { token } });
+  return data.data;
+};
+
+export const resetPassword = async (token, newPassword) => {
+  const { data } = await api.post('/api/auth/reset-password', { token, newPassword });
+  return data;
+};
+
+// ─── Client Invite Token (set password via invite link) ───────────
+
+export const verifyInviteToken = async (token) => {
+  const { data } = await api.get('/api/auth/verify-invite-token', { params: { token } });
+  return data.data;
+};
+
+export const setPasswordViaInvite = async (token, newPassword) => {
+  const { data } = await api.post('/api/auth/set-password', { token, newPassword });
+  return data;
+};
+
+// ─── Admin Forgot / Reset Password ───────────────────────────────
+
+export const adminForgotPassword = async (email) => {
+  const { data } = await api.post('/api/admin/auth/forgot-password', { email });
+  return data;
+};
+
+export const adminVerifyResetToken = async (token) => {
+  const { data } = await api.get('/api/admin/auth/verify-reset-token', { params: { token } });
+  return data.data;
+};
+
+export const adminResetPassword = async (token, newPassword) => {
+  const { data } = await api.post('/api/admin/auth/reset-password', { token, newPassword });
+  return data;
+};
+
+// ─── Helpers ──────────────────────────────────────────────────────
+export const getStoredUser = (rolePreference = null) => {
+  if (rolePreference === 'SUPER_ADMIN') {
+    return JSON.parse(localStorage.getItem(STORAGE_KEYS.SUPER_ADMIN_USER));
+  }
+  if (rolePreference === 'ADMIN') {
+    return JSON.parse(localStorage.getItem(STORAGE_KEYS.ADMIN_USER));
+  }
+  if (rolePreference === 'CLIENT') {
+    return JSON.parse(localStorage.getItem(STORAGE_KEYS.CLIENT_USER));
+  }
+  // Default to client if no preference
+  return JSON.parse(localStorage.getItem(STORAGE_KEYS.CLIENT_USER)) || 
+         JSON.parse(localStorage.getItem(STORAGE_KEYS.ADMIN_USER)) ||
+         JSON.parse(localStorage.getItem(STORAGE_KEYS.SUPER_ADMIN_USER));
+};
