@@ -1,5 +1,6 @@
 package com.buyersmatch.controllers;
 
+import com.buyersmatch.entities.BuyerBrief;
 import com.buyersmatch.entities.PropertyDocument;
 import com.buyersmatch.repositories.*;
 import com.buyersmatch.services.R2StorageService;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 import java.util.List;
@@ -133,18 +135,41 @@ public class SyncController {
         return ResponseEntity.ok(Map.of("success", true, "message", "ClientManagement sync started in background" + (limit != null ? " (limit " + limit + ")" : "")));
     }
 
-    @PostMapping("/client/{zohoContactId}")
-    public ResponseEntity<Map<String, Object>> refreshClient(@PathVariable String zohoContactId) {
+    @PostMapping("/client/{id}")
+    public ResponseEntity<Map<String, Object>> refreshClient(@PathVariable String id) {
+        String zohoContactId = resolveZohoContactId(id);
+        if (zohoContactId == null) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "error", "Could not resolve zohoContactId for: " + id));
+        }
         log.info("Admin triggered client refresh for contact {}", zohoContactId);
         zohoSyncService.refreshClientData(zohoContactId);
         return ResponseEntity.ok(Map.of("success", true));
     }
 
-    @PostMapping("/client/{zohoContactId}/media")
-    public ResponseEntity<Map<String, Object>> refreshClientMedia(@PathVariable String zohoContactId) {
+    @PostMapping("/client/{id}/media")
+    public ResponseEntity<Map<String, Object>> refreshClientMedia(@PathVariable String id) {
+        String zohoContactId = resolveZohoContactId(id);
+        if (zohoContactId == null) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "error", "Could not resolve zohoContactId for: " + id));
+        }
         log.info("Admin triggered client media refresh for contact {}", zohoContactId);
         zohoSyncService.refreshClientMedia(zohoContactId);
         return ResponseEntity.ok(Map.of("success", true));
+    }
+
+    /**
+     * Accepts either a zohoContactId string or a buyerBriefId UUID.
+     * If a UUID is given, looks up the BuyerBrief and returns its zohoContactId.
+     */
+    private String resolveZohoContactId(String id) {
+        try {
+            UUID uuid = UUID.fromString(id);
+            BuyerBrief brief = buyerBriefRepository.findById(uuid).orElse(null);
+            return brief != null ? brief.getZohoContactId() : null;
+        } catch (IllegalArgumentException e) {
+            // Not a UUID — assume it's already a zohoContactId
+            return id;
+        }
     }
 
     @PostMapping("/documents/missing-r2")

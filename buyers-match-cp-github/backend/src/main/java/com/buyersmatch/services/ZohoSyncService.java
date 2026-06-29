@@ -682,14 +682,27 @@ public class ZohoSyncService {
             ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.GET, new HttpEntity<>(getZohoHeaders()), Map.class);
             if (response.getStatusCode() != HttpStatus.OK || response.getBody() == null) return;
             List<Map<String, Object>> records = (List<Map<String, Object>>) response.getBody().get("data");
-            if (records == null || records.isEmpty()) return;
+            if (records == null) records = Collections.emptyList();
 
+            Set<String> zohoIds = new HashSet<>();
             Map<String, String> contactEmailCache = new HashMap<>();
             for (Map<String, Object> r : records) {
                 String zohoAssignmentId = r.get("id") != null ? r.get("id").toString() : null;
                 if (zohoAssignmentId == null) continue;
+                zohoIds.add(zohoAssignmentId);
                 saveAssignmentRecord(r, zohoAssignmentId, contactEmailCache);
             }
+
+            // Reconcile: delete local assignments that no longer exist in Zoho
+            List<Assignment> localAssignments = assignmentRepository.findAllByZohoContactId(zohoContactId);
+            for (Assignment a : localAssignments) {
+                String aid = a.getZohoAssignmentId();
+                if (aid != null && !aid.startsWith("manual-") && !zohoIds.contains(aid)) {
+                    log.info("Client refresh: deleting orphan assignment {} (not in Zoho) for contact {}", aid, zohoContactId);
+                    assignmentRepository.delete(a);
+                }
+            }
+
             log.info("Client refresh: synced {} assignments for contact {}", records.size(), zohoContactId);
         } catch (Exception e) {
             log.error("Client refresh: failed to sync assignments for contact {}: {}", zohoContactId, e.getMessage());
@@ -1078,6 +1091,7 @@ public class ZohoSyncService {
         property.setAskingPriceMin(toBigDecimal(r.get("Asking_Price_Min")));
         property.setAskingPriceMax(toBigDecimal(r.get("Asking_Price_Max")));
         property.setMinRentPerMonth(toBigDecimal(r.get("Minimum_Rent_Per_Month")));
+        property.setInsuranceAmount(toBigDecimal(r.get("Insurance_Amount")));
         property.setYieldPercent(toDouble(r.get("Yield_Percent")));
         property.setStatus(newStatus);
         property.setSaleType(r.get("Sale_Type") != null ? r.get("Sale_Type").toString() : null);

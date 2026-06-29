@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
   getPropertyDetail,
   getPropertyDocuments,
@@ -57,6 +57,7 @@ import { ShoppingBag } from "lucide-react";
 const PropertyDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const toast = useToast();
   const [property, setProperty] = useState(null);
   const [assignment, setAssignment] = useState(null);
@@ -219,7 +220,7 @@ const PropertyDetail = () => {
             Property not found
           </h2>
           <button
-            onClick={() => navigate("/dashboard")}
+            onClick={() => navigate("/dashboard", { state: location.state })}
             className="text-teal hover:underline"
           >
             Back to Dashboard
@@ -245,7 +246,7 @@ const PropertyDetail = () => {
     <Layout title={property.address}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <button
-          onClick={() => navigate("/dashboard")}
+          onClick={() => navigate("/dashboard", { state: location.state })}
           className="flex items-center gap-2 text-gray-400 hover:text-teal transition-colors mb-8 group"
         >
           <ChevronLeft
@@ -652,6 +653,14 @@ const PropertyDetail = () => {
                     label: "Rental Situation",
                     value: property.rentalSituation,
                     icon: ArrowUpDown,
+                    color: "text-white",
+                  },
+                  {
+                    label: "Insurance Amount",
+                    value: property.insuranceAmount != null
+                      ? `$${Number(property.insuranceAmount).toLocaleString()}`
+                      : null,
+                    icon: PiggyBank,
                     color: "text-white",
                   },
                 ].map(({ label, value, icon: Icon, color }, i) => (
@@ -1315,26 +1324,41 @@ const PropertyDetail = () => {
               </button>
             </div>
             <div className="flex-1 rounded-2xl overflow-hidden bg-white/5 border border-white/10">
+              {/* Mobile: embedded PDFs not supported — show open button */}
+              <div className="flex md:hidden flex-col items-center justify-center h-full text-center p-8 space-y-6">
+                <div className="w-20 h-20 bg-teal/10 rounded-full flex items-center justify-center">
+                  <FileText size={40} className="text-teal" />
+                </div>
+                <div>
+                  <p className="text-white font-bold text-lg mb-2">PDF Document</p>
+                  <p className="text-gray-400 text-sm">Mobile browsers can't display embedded PDFs. Tap below to open it.</p>
+                </div>
+                <a
+                  href={previewDoc}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-8 py-4 bg-teal text-navy rounded-2xl font-bold text-base hover:bg-teal/90 transition-all flex items-center gap-2"
+                >
+                  <ExternalLink size={18} /> Open PDF
+                </a>
+              </div>
+              {/* Desktop: native embed */}
               <object
                 data={previewDoc}
                 type="application/pdf"
-                className="w-full h-full"
+                className="w-full h-full hidden md:block"
               >
                 <div className="flex flex-col items-center justify-center h-full text-center p-8 space-y-4">
                   <AlertCircle size={48} className="text-gray-500" />
-                  <p className="text-white font-bold text-lg">
-                    Unable to load preview
-                  </p>
-                  <p className="text-gray-400">
-                    Your browser might not support native PDF previews.
-                  </p>
+                  <p className="text-white font-bold text-lg">Unable to load preview</p>
+                  <p className="text-gray-400">Your browser might not support native PDF previews.</p>
                   <a
                     href={previewDoc}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="px-6 py-3 bg-teal text-navy rounded-xl font-bold mt-4"
                   >
-                    Download PDF instead
+                    Open PDF instead
                   </a>
                 </div>
               </object>

@@ -80,6 +80,13 @@ export const updateAgentNotes = async (clientId, notes) => {
   return data.data;
 };
 
+/** DELETE /api/admin/assignment/:assignmentId */
+export const deleteAssignment = async (assignmentId) => {
+  if (USE_MOCK) { await delay(); return { success: true }; }
+  const { data } = await adminApi.delete(`/api/admin/assignment/${assignmentId}`);
+  return data;
+};
+
 /** POST /api/admin/assignment/:assignmentId/agent-notes */
 export const updateAssignmentAgentNotes = async (assignmentId, agentNotes) => {
   if (USE_MOCK) {

@@ -28,6 +28,7 @@ import {
   ChevronDown,
   RefreshCw,
   LayoutList,
+  Trash2,
 } from "lucide-react";
 import PropertyTable from "../../components/shared/PropertyTable";
 import { isPurchasedItem, isTerminalItem } from "../../components/shared/StatusBadge";
@@ -37,6 +38,7 @@ import {
   getPropertyDocuments,
   refreshClientSync,
   refreshClientMediaSync,
+  deleteAssignment,
 } from "../../api/client";
 
 // ─── Formatting helpers ────────────────────────────────────────────────────────
@@ -312,6 +314,10 @@ const ClientDetail = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [refreshMsg, setRefreshMsg] = useState(null);
 
+  // Delete assignment
+  const [deletingId, setDeletingId] = useState(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+
   const allBriefs = useMemo(() => briefs, [briefs]);
 
   const displayedBrief = useMemo(
@@ -452,6 +458,23 @@ const ClientDetail = () => {
     } finally {
       setRefreshing(false);
       setTimeout(() => setRefreshMsg(null), 4000);
+    }
+  };
+
+  const handleDeleteAssignment = async (assignmentId) => {
+    if (confirmDeleteId !== assignmentId) {
+      setConfirmDeleteId(assignmentId);
+      return;
+    }
+    setDeletingId(assignmentId);
+    setConfirmDeleteId(null);
+    try {
+      await deleteAssignment(assignmentId);
+      setProperties((prev) => prev.filter((p) => p.assignment?.id !== assignmentId));
+    } catch (err) {
+      console.error("Failed to delete assignment:", err);
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -769,6 +792,10 @@ const ClientDetail = () => {
                 selectable={true}
                 compareList={compareList}
                 onToggleCompare={toggleCompare}
+                onDeleteAssignment={handleDeleteAssignment}
+                deletingId={deletingId}
+                confirmDeleteId={confirmDeleteId}
+                onCancelDelete={() => setConfirmDeleteId(null)}
               />
             ) : (
               <div className="flex flex-col items-center justify-center py-20 bg-white/5 border border-dashed border-white/10 rounded-3xl">

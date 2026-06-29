@@ -22,8 +22,10 @@ import {
   updateClientEmail,
   deactivatePortalUser,
   reactivatePortalUser,
+  getAdminMe,
 } from "../../api/client";
 import { getStoredUser } from "../../api/auth";
+import { STORAGE_KEYS } from "../../api/http";
 import { Link } from "react-router-dom";
 import { useToast } from "../../components/Toast";
 
@@ -40,7 +42,7 @@ const ClientList = () => {
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState("all");
+  const [activeTab, setActiveTab] = useState(() => sessionStorage.getItem("admin_clientList_tab") || "all");
   const [adminUser, setAdminUser] = useState(() => getStoredUser("ADMIN"));
 
   // Credentials modal (Active / Inactive)
@@ -188,10 +190,9 @@ const ClientList = () => {
 
   // ── Onboard modal ──────────────────────────────────────────────────────────
   const openOnboardModal = (client) => {
-    if (adminUser) {
-      const totalOnboarded = clients.filter((c) => c.portalUser).length;
-      const limit = adminUser.onboardingLimit || 0;
-      if (limit <= totalOnboarded) {
+    if (adminUser && !adminUser.isSuperAdmin) {
+      const remaining = adminUser.onboardingLimit ?? 0;
+      if (remaining <= 0) {
         toast("Onboarding limit reached. Please purchase more credits.", "error");
         return;
       }
@@ -228,7 +229,15 @@ const ClientList = () => {
             : c,
         ),
       );
-      
+
+      // Decrement credit count in state and localStorage
+      setAdminUser((prev) => {
+        if (!prev || prev.isSuperAdmin) return prev;
+        const updated = { ...prev, onboardingLimit: Math.max(0, (prev.onboardingLimit ?? 1) - 1) };
+        localStorage.setItem(STORAGE_KEYS.ADMIN_USER, JSON.stringify(updated));
+        return updated;
+      });
+
       setShowOnboardModal(false);
       toast(`${onboardingClient.fullName} onboarded successfully!`);
     } catch (err) {
@@ -284,7 +293,7 @@ const ClientList = () => {
             </div>
             <div className="flex flex-col items-end">
               <div className="text-2xl font-black text-white">
-                {Math.max(0, (adminUser?.onboardingLimit || 0) - clients.filter(c => c.portalUser).length)}
+                {adminUser?.onboardingLimit ?? 0}
               </div>
               <div className="text-xs text-teal font-bold uppercase tracking-wider">
                 Credits Remaining
@@ -299,7 +308,7 @@ const ClientList = () => {
             {tabs.map((tab) => (
               <button
                 key={tab.value}
-                onClick={() => setActiveTab(tab.value)}
+                onClick={() => { setActiveTab(tab.value); sessionStorage.setItem("admin_clientList_tab", tab.value); }}
                 className={`px-5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
                   activeTab === tab.value
                     ? "bg-teal text-navy"

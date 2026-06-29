@@ -40,13 +40,11 @@ public class SuperAdminController {
         List<Map<String, Object>> adminsList = adminUserRepository.findAll().stream()
                 .filter(a -> !Boolean.TRUE.equals(a.getIsSuperAdmin()))
                 .map(a -> {
-                    long onboardedCount = clientPortalUserService.getAllPortalUsers(null).size();
                     Map<String, Object> adminMap = new java.util.HashMap<>();
                     adminMap.put("id", a.getId());
                     adminMap.put("email", a.getEmail());
                     adminMap.put("fullName", a.getFullName());
                     adminMap.put("onboardingLimit", a.getOnboardingLimit() != null ? a.getOnboardingLimit() : 0);
-                    adminMap.put("totalOnboarded", onboardedCount);
                     return adminMap;
                 })
                 .collect(Collectors.toList());

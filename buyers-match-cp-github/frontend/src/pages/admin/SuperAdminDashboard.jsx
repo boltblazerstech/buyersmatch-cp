@@ -133,8 +133,7 @@ const SuperAdminDashboard = () => {
               <thead className="bg-white/5 border-b border-white/10">
                 <tr>
                   <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Admin Email</th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest text-center">Total Onboarded</th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest text-center">Limit</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest text-center">Credits Remaining</th>
                   <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest text-right">Actions</th>
                 </tr>
               </thead>
@@ -142,7 +141,6 @@ const SuperAdminDashboard = () => {
                 {admins.map(admin => (
                   <tr key={admin.id}>
                     <td className="px-6 py-4 text-white">{admin.email}</td>
-                    <td className="px-6 py-4 text-center text-teal font-bold">{admin.totalOnboarded || 0}</td>
                     <td className="px-6 py-4 text-center">
                       <input
                         type="number"
@@ -166,7 +164,7 @@ const SuperAdminDashboard = () => {
                 ))}
                 {admins.length === 0 && (
                   <tr>
-                    <td colSpan="4" className="px-6 py-8 text-center text-gray-500">No standard admins found.</td>
+                    <td colSpan="3" className="px-6 py-8 text-center text-gray-500">No standard admins found.</td>
                   </tr>
                 )}
               </tbody>

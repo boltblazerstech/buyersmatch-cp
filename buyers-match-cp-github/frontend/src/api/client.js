@@ -30,6 +30,7 @@ export {
   createClient,
   updateAgentNotes,
   updateAssignmentAgentNotes,
+  deleteAssignment,
   assignPropertyToClient,
   getAllResponses,
   resetClientPassword,

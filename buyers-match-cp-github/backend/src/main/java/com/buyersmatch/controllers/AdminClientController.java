@@ -3,21 +3,26 @@ package com.buyersmatch.controllers;
 import com.buyersmatch.dto.AssignPropertyRequest;
 import com.buyersmatch.dto.OnboardClientRequest;
 import com.buyersmatch.dto.SaveNotesRequest;
+import com.buyersmatch.entities.AdminUser;
 import com.buyersmatch.entities.Assignment;
 import com.buyersmatch.entities.BuyerBrief;
 import com.buyersmatch.entities.ClientPortalUser;
 import com.buyersmatch.entities.Property;
+import com.buyersmatch.repositories.AdminUserRepository;
 import com.buyersmatch.repositories.AssignmentRepository;
 import com.buyersmatch.repositories.BuyerBriefRepository;
 import com.buyersmatch.repositories.ClientPortalUserRepository;
 import com.buyersmatch.repositories.PropertyRepository;
 import com.buyersmatch.services.ClientPortalUserService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -34,6 +39,7 @@ public class AdminClientController {
     private final PropertyRepository propertyRepository;
     private final AssignmentRepository assignmentRepository;
     private final ClientPortalUserService clientPortalUserService;
+    private final AdminUserRepository adminUserRepository;
 
     // -------------------------------------------------------------------------
     // GET /api/admin/clients
@@ -162,7 +168,22 @@ public class AdminClientController {
     // -------------------------------------------------------------------------
 
     @PostMapping("/client")
-    public ResponseEntity<Map<String, Object>> createClient(@Valid @RequestBody OnboardClientRequest request) {
+    public ResponseEntity<Map<String, Object>> createClient(
+            @Valid @RequestBody OnboardClientRequest request,
+            HttpServletRequest httpRequest) {
+
+        AdminUser adminUser = (AdminUser) httpRequest.getAttribute("adminUser");
+        if (adminUser != null && !Boolean.TRUE.equals(adminUser.getIsSuperAdmin())) {
+            int remaining = adminUser.getOnboardingLimit() != null ? adminUser.getOnboardingLimit() : 0;
+            if (remaining <= 0) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                        "Onboarding limit reached. Please purchase more credits to onboard additional clients.");
+            }
+            adminUser.setOnboardingLimit(remaining - 1);
+            adminUserRepository.save(adminUser);
+            log.info("Credit consumed for admin {}: {} remaining", adminUser.getEmail(), remaining - 1);
+        }
+
         return ResponseEntity.ok(Map.of("success", true, "data",
                 clientPortalUserService.onboardClient(request)));
     }
@@ -240,6 +261,19 @@ public class AdminClientController {
     }
 
     // -------------------------------------------------------------------------
+    // DELETE /api/admin/assignment/:assignmentId
+    // -------------------------------------------------------------------------
+
+    @DeleteMapping("/assignment/{assignmentId}")
+    public ResponseEntity<Map<String, Object>> deleteAssignment(@PathVariable UUID assignmentId) {
+        Assignment assignment = assignmentRepository.findById(assignmentId)
+                .orElseThrow(() -> new IllegalArgumentException("Assignment not found: " + assignmentId));
+        assignmentRepository.delete(assignment);
+        log.info("Admin deleted assignment {}", assignmentId);
+        return ResponseEntity.ok(Map.of("success", true));
+    }
+
+    // -------------------------------------------------------------------------
     // GET /api/admin/responses
     // -------------------------------------------------------------------------
 
@@ -283,6 +317,11 @@ public class AdminClientController {
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<Map<String, Object>> handleIllegalState(IllegalStateException ex) {
         return ResponseEntity.badRequest().body(Map.of("success", false, "error", ex.getMessage()));
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<Map<String, Object>> handleResponseStatus(ResponseStatusException ex) {
+        return ResponseEntity.status(ex.getStatusCode()).body(Map.of("success", false, "error", ex.getReason()));
     }
 
     // TEMPORARY - DELETE AFTER USE

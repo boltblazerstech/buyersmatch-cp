@@ -617,6 +617,14 @@ const AdminPropertyDetail = () => {
                     icon: ArrowUpDown,
                     color: "text-white",
                   },
+                  {
+                    label: "Insurance Amount",
+                    value: property.insuranceAmount != null
+                      ? `$${Number(property.insuranceAmount).toLocaleString()}`
+                      : null,
+                    icon: PiggyBank,
+                    color: "text-white",
+                  },
                 ].map(({ label, value, icon: Icon, color }, i) => (
                   <div
                     key={i}

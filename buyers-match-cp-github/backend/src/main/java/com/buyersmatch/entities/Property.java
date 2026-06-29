@@ -43,6 +43,7 @@ public class Property {
     private BigDecimal askingPriceMin;
     private BigDecimal askingPriceMax;
     private BigDecimal minRentPerMonth;
+    private BigDecimal insuranceAmount;
     private Double yieldPercent;
 
     private String status;

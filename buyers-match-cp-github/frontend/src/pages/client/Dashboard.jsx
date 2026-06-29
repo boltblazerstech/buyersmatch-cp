@@ -301,7 +301,7 @@ const BuyerBriefView = ({ brief }) => {
 const Dashboard = () => {
   const [properties, setProperties] = useState([]);
   const [briefs, setBriefs] = useState([]);
-  const [selectedBriefId, setSelectedBriefId] = useState("ALL");
+  const [selectedBriefId, setSelectedBriefId] = useState(() => sessionStorage.getItem("dashboard_selectedBriefId") || "ALL");
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState(() => sessionStorage.getItem("dashboard_activeTab") || "ALL");
@@ -326,6 +326,18 @@ const Dashboard = () => {
   useEffect(() => {
     sessionStorage.setItem("dashboard_activeTab", activeTab);
   }, [activeTab]);
+
+  // Restore filter state when returning from property detail
+  useEffect(() => {
+    if (location.state?.selectedBriefId) {
+      setSelectedBriefId(location.state.selectedBriefId);
+      sessionStorage.setItem("dashboard_selectedBriefId", location.state.selectedBriefId);
+    }
+    if (location.state?.activeTab) {
+      setActiveTab(location.state.activeTab);
+    }
+  }, []);
+
 
   const allBriefs = useMemo(() => briefs, [briefs]);
 
@@ -658,7 +670,10 @@ const Dashboard = () => {
                 <div className="relative">
                   <select
                     value={selectedBriefId}
-                    onChange={(e) => setSelectedBriefId(e.target.value)}
+                    onChange={(e) => {
+                      setSelectedBriefId(e.target.value);
+                      sessionStorage.setItem("dashboard_selectedBriefId", e.target.value);
+                    }}
                     className="appearance-none bg-navy border border-teal/30 rounded-xl px-4 py-2 pr-10 text-sm font-bold text-teal focus:outline-none focus:border-teal transition-all cursor-pointer"
                   >
                     <option value="ALL">All Briefs ({allBriefs.length})</option>
@@ -768,7 +783,7 @@ const Dashboard = () => {
           {filteredProperties.length > 0 ? (
             <PropertyTable
               properties={filteredProperties}
-              onRowClick={(item) => navigate(`/property/${item.propertyId}`)}
+              onRowClick={(item) => navigate(`/property/${item.propertyId}`, { state: { selectedBriefId, activeTab } })}
               selectable={true}
               compareList={compareList}
               onToggleCompare={toggleCompare}
