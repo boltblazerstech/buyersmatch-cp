@@ -1324,22 +1324,20 @@ const PropertyDetail = () => {
               </button>
             </div>
             <div className="flex-1 rounded-2xl overflow-hidden bg-white/5 border border-white/10">
-              {/* Mobile: embedded PDFs not supported — show open button */}
-              <div className="flex md:hidden flex-col items-center justify-center h-full text-center p-8 space-y-6">
-                <div className="w-20 h-20 bg-teal/10 rounded-full flex items-center justify-center">
-                  <FileText size={40} className="text-teal" />
-                </div>
-                <div>
-                  <p className="text-white font-bold text-lg mb-2">PDF Document</p>
-                  <p className="text-gray-400 text-sm">Mobile browsers can't display embedded PDFs. Tap below to open it.</p>
-                </div>
+              {/* Mobile: Google Docs Viewer for inline preview */}
+              <div className="flex md:hidden flex-col h-full">
+                <iframe
+                  src={`https://docs.google.com/viewer?url=${encodeURIComponent(previewDoc)}&embedded=true`}
+                  className="w-full flex-1 rounded-xl border-0"
+                  title="PDF Preview"
+                />
                 <a
                   href={previewDoc}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="px-8 py-4 bg-teal text-navy rounded-2xl font-bold text-base hover:bg-teal/90 transition-all flex items-center gap-2"
+                  className="flex items-center justify-center gap-1.5 py-2 text-xs text-gray-500 hover:text-teal transition-colors shrink-0"
                 >
-                  <ExternalLink size={18} /> Open PDF
+                  <ExternalLink size={12} /> Open directly if preview doesn't load
                 </a>
               </div>
               {/* Desktop: native embed */}
