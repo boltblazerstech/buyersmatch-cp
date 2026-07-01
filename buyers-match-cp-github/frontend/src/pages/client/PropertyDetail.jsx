@@ -1323,43 +1323,20 @@ const PropertyDetail = () => {
                 <XCircle size={28} />
               </button>
             </div>
-            <div className="flex-1 rounded-2xl overflow-hidden bg-white/5 border border-white/10">
-              {/* Mobile: Google Docs Viewer for inline preview */}
-              <div className="flex md:hidden flex-col h-full">
-                <iframe
-                  src={`https://docs.google.com/viewer?url=${encodeURIComponent(previewDoc)}&embedded=true`}
-                  className="w-full flex-1 rounded-xl border-0"
-                  title="PDF Preview"
-                />
-                <a
-                  href={previewDoc}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-1.5 py-2 text-xs text-gray-500 hover:text-teal transition-colors shrink-0"
-                >
-                  <ExternalLink size={12} /> Open directly if preview doesn't load
-                </a>
-              </div>
-              {/* Desktop: native embed */}
-              <object
-                data={previewDoc}
-                type="application/pdf"
-                className="w-full h-full hidden md:block"
+            <div className="flex flex-col flex-1 rounded-2xl overflow-hidden bg-white/5 border border-white/10">
+              <iframe
+                src={previewDoc}
+                className="w-full flex-1 border-0"
+                title="PDF Preview"
+              />
+              <a
+                href={previewDoc}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-1.5 py-2 text-xs text-gray-500 hover:text-teal transition-colors shrink-0"
               >
-                <div className="flex flex-col items-center justify-center h-full text-center p-8 space-y-4">
-                  <AlertCircle size={48} className="text-gray-500" />
-                  <p className="text-white font-bold text-lg">Unable to load preview</p>
-                  <p className="text-gray-400">Your browser might not support native PDF previews.</p>
-                  <a
-                    href={previewDoc}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-6 py-3 bg-teal text-navy rounded-xl font-bold mt-4"
-                  >
-                    Open PDF instead
-                  </a>
-                </div>
-              </object>
+                <ExternalLink size={12} /> Can't see the preview? Open PDF directly
+              </a>
             </div>
           </div>
         </div>
