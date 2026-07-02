@@ -27,7 +27,7 @@ const AdminLogin = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0A1128] text-white p-6">
+    <div className="min-h-screen relative flex items-center justify-center bg-[#0A1128] text-white p-6">
       <div className="p-8 bg-[#1B2A4A] rounded-xl border border-gold/40 shadow-2xl w-full max-w-md backdrop-blur-sm">
         <div className="mb-8 text-center">
           <div className="w-16 h-16 bg-gold/10 border border-gold/30 rounded-2xl flex items-center justify-center mx-auto mb-4">

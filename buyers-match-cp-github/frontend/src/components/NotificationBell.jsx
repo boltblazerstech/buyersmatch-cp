@@ -47,6 +47,21 @@ const NotificationBell = () => {
     return () => clearInterval(interval);
   }, [zohoContactId]);
 
+  // Broadcast count to BottomNav + update app badge
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('bm-notification-count', { detail: { count: unreadCount } }));
+    if ('setAppBadge' in navigator) {
+      unreadCount > 0 ? navigator.setAppBadge(unreadCount) : navigator.clearAppBadge();
+    }
+  }, [unreadCount]);
+
+  // Let BottomNav bell button open this dropdown
+  useEffect(() => {
+    const handler = () => { if (!isOpen) handleBellClick(); };
+    window.addEventListener('bm-open-notifications', handler);
+    return () => window.removeEventListener('bm-open-notifications', handler);
+  }, [isOpen]);
+
   // Close on outside click
   useEffect(() => {
     const handleClickOutside = (e) => {

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { login } from "../api/client";
-import { Mail, Lock, Loader2, Eye, EyeOff } from "lucide-react";
+import { Mail, Lock, Loader2, Eye, EyeOff, ShieldCheck } from "lucide-react";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -36,7 +36,7 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-navy text-white p-6">
+    <div className="min-h-screen relative flex items-center justify-center bg-navy text-white p-6">
       <div className="p-8 bg-[#24355A] rounded-xl border border-teal shadow-2xl w-full max-w-md backdrop-blur-sm">
         <div className="mb-8 text-center">
           <h1 className="text-4xl font-bold text-teal mb-1 tracking-tight">
@@ -129,6 +129,12 @@ const Login = () => {
           </p>
         </div>
       </div>
+      <Link
+        to="/admin/login"
+        className="absolute bottom-5 left-1/2 -translate-x-1/2 text-white/30 hover:text-teal transition-colors"
+      >
+        <ShieldCheck size={22} />
+      </Link>
     </div>
   );
 };

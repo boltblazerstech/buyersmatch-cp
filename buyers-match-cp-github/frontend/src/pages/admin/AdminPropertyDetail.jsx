@@ -881,7 +881,7 @@ const AdminPropertyDetail = () => {
                           {doc.url && (
                             <button
                               onClick={() => setPreviewDoc(doc.url)}
-                              className="p-2 text-teal bg-teal/10 rounded-lg hover:bg-teal hover:text-navy transition-colors"
+                              className="hidden sm:block p-2 text-teal bg-teal/10 rounded-lg hover:bg-teal hover:text-navy transition-colors"
                             >
                               <Eye size={16} />
                             </button>
