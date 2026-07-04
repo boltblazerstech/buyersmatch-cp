@@ -4,13 +4,57 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/jpeg" href="/favicon.jpg" />
     <link rel="manifest" href="/manifest.json" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Viewport: cover fills notch + Dynamic Island area -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+    <!-- Theme / status bar -->
     <meta name="theme-color" content="#1B2A4A" />
-    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="BuyersMatch" />
+    <meta name="mobile-web-app-capable" content="yes" />
+
+    <!-- Apple touch icons (iOS uses these, ignores manifest icons) -->
     <link rel="apple-touch-icon" href="/bm-logo-192x192.png" />
+    <link rel="apple-touch-icon" sizes="152x152" href="/bm-logo-192x192.png" />
+    <link rel="apple-touch-icon" sizes="167x167" href="/bm-logo-192x192.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/bm-logo-192x192.png" />
+
+    <!-- iOS splash screens for common iPhone sizes -->
+    <!-- iPhone 16 Pro Max -->
+    <link rel="apple-touch-startup-image"
+      href="/bm-logo-512x512.png"
+      media="screen and (device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3)" />
+    <!-- iPhone 16 Pro -->
+    <link rel="apple-touch-startup-image"
+      href="/bm-logo-512x512.png"
+      media="screen and (device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3)" />
+    <!-- iPhone 15 Pro Max / 14 Pro Max -->
+    <link rel="apple-touch-startup-image"
+      href="/bm-logo-512x512.png"
+      media="screen and (device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3)" />
+    <!-- iPhone 15 / 14 Pro -->
+    <link rel="apple-touch-startup-image"
+      href="/bm-logo-512x512.png"
+      media="screen and (device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3)" />
+    <!-- iPhone 14 / 13 / 12 -->
+    <link rel="apple-touch-startup-image"
+      href="/bm-logo-512x512.png"
+      media="screen and (device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)" />
+    <!-- iPhone 11 / XR -->
+    <link rel="apple-touch-startup-image"
+      href="/bm-logo-512x512.png"
+      media="screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2)" />
+    <!-- iPhone X / XS / 11 Pro -->
+    <link rel="apple-touch-startup-image"
+      href="/bm-logo-512x512.png"
+      media="screen and (device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3)" />
+    <!-- iPhone SE / 8 / 7 / 6 -->
+    <link rel="apple-touch-startup-image"
+      href="/bm-logo-512x512.png"
+      media="screen and (device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2)" />
+
     <title>BuyersMatch Portal</title>
   </head>
   <body>

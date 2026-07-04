@@ -92,8 +92,8 @@ const PullToRefresh = ({ children }) => {
 const Layout = ({ children, title }) => {
   return (
     <div className="min-h-screen bg-[#0F1E35] text-white flex flex-col">
-      {/* Top Bar */}
-      <header className="h-16 bg-navy border-b border-teal/20 px-6 flex items-center justify-between sticky top-0 z-30">
+      {/* Top Bar — pt-safe pushes content below iOS status bar when in standalone mode */}
+      <header className="bg-navy border-b border-teal/20 px-6 flex items-center justify-between sticky top-0 z-30 pt-safe" style={{ minHeight: '4rem' }}>
         <div className="flex items-center gap-8">
           <Link to="/dashboard" className="flex items-center hover:opacity-80 transition-opacity">
             <img src={logo} alt="BuyersMatch" className="h-8 w-auto" />
@@ -117,7 +117,8 @@ const Layout = ({ children, title }) => {
 
       {/* Content with pull-to-refresh */}
       <PullToRefresh>
-        <main className="flex-1 p-6 pb-28 md:pb-10 lg:p-10">
+        {/* pb-28 on mobile = bottom nav (64px) + breathing room; md resets to normal */}
+        <main className="flex-1 p-6 pb-28 md:pb-10 lg:p-10 pl-[max(1.5rem,env(safe-area-inset-left))] pr-[max(1.5rem,env(safe-area-inset-right))]">
           <div className="max-w-7xl mx-auto">
             {children}
           </div>
