@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import AdminLayout from "../../components/AdminLayout";
 import {
   ChevronLeft,
@@ -285,6 +285,7 @@ const ComparisonModal = ({ properties, onClose }) => {
 const ClientDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [client, setClient] = useState(null);
   const [properties, setProperties] = useState([]);
@@ -303,8 +304,23 @@ const ClientDetail = () => {
     sessionStorage.setItem("admin_client_activeTab", activeTab);
   }, [activeTab]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedBriefId, setSelectedBriefId] = useState("ALL");
+  const [selectedBriefId, setSelectedBriefId] = useState(() => searchParams.get("briefId") || "ALL");
   const [selectedActiveBriefId, setSelectedActiveBriefId] = useState(null);
+
+  // Bug fix: filters must reset when the admin switches from viewing one
+  // client to another — otherwise Client B inherits Client A's leftover filters.
+  useEffect(() => {
+    setSelectedBriefId(searchParams.get("briefId") || "ALL");
+    setActiveTab("ALL");
+    setSearchQuery("");
+  }, [id]);
+
+  // Keep the brief filter in sync with the URL so browser back/forward
+  // restores whatever was selected, instead of resetting to "ALL".
+  useEffect(() => {
+    const paramBriefId = searchParams.get("briefId");
+    if (paramBriefId) setSelectedBriefId(paramBriefId);
+  }, [searchParams]);
 
   // Compare
   const [compareList, setCompareList] = useState([]);
@@ -677,7 +693,13 @@ const ClientDetail = () => {
                   <div className="relative">
                     <select
                       value={selectedBriefId}
-                      onChange={(e) => setSelectedBriefId(e.target.value)}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setSelectedBriefId(value);
+                        const params = new URLSearchParams(searchParams);
+                        params.set("briefId", value);
+                        navigate(`/admin/client/${id}?${params.toString()}`, { replace: true });
+                      }}
                       className="appearance-none bg-navy border border-teal/30 rounded-xl px-4 py-2 pr-10 text-sm font-bold text-teal focus:outline-none focus:border-teal transition-all cursor-pointer"
                     >
                       <option value="ALL">All Briefs ({allBriefs.length})</option>
@@ -787,7 +809,7 @@ const ClientDetail = () => {
               <PropertyTable
                 properties={filteredProperties}
                 onRowClick={(item) =>
-                  navigate(`/admin/client/${id}/property/${item.propertyId}`)
+                  navigate(`/admin/client/${id}/property/${item.propertyId}?briefId=${selectedBriefId}`)
                 }
                 selectable={true}
                 compareList={compareList}

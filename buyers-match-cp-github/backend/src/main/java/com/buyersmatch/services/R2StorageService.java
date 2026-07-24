@@ -99,6 +99,29 @@ public class R2StorageService {
         }
     }
 
+    /**
+     * Uploads already-downloaded bytes straight to R2 (no redirect handling or
+     * magic-byte validation — use this when the caller already has verified bytes in hand).
+     */
+    public String uploadBytes(byte[] bytes, String fileKey, String contentType) {
+        if (bytes == null || bytes.length == 0) {
+            log.error("uploadBytes called with empty/null bytes for key {}", fileKey);
+            return null;
+        }
+        try {
+            PutObjectRequest request = PutObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(fileKey)
+                    .contentType(contentType)
+                    .build();
+            s3.putObject(request, RequestBody.fromBytes(bytes));
+            return publicUrl + "/" + fileKey;
+        } catch (Exception e) {
+            log.error("Failed to upload bytes to R2 key {}: {}", fileKey, e.getMessage());
+            return null;
+        }
+    }
+
     // -------------------------------------------------------------------------
     // REDIRECT-AWARE DOWNLOAD
     // -------------------------------------------------------------------------

@@ -12,4 +12,5 @@ public interface PropertyDocumentRepository extends JpaRepository<PropertyDocume
     List<PropertyDocument> findAllByR2UrlIsNullAndCrmDownloadUrlIsNotNull();
     List<PropertyDocument> findAllByR2UrlIsNullAndCrmDownloadUrlIsNullAndDownloadLinkIsNotNull();
     void deleteAllByZohoPropertyId(String zohoPropertyId);
+    int deleteByZohoPropertyIdAndZohoDocIdNotIn(String zohoPropertyId, List<String> zohoDocIds);
 }

@@ -60,6 +60,9 @@ public class ZohoSyncService {
     private static final DateTimeFormatter ZOHO_DATE_FORMAT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXXX");
 
+    // File-upload field download_Url values are root-relative — this is the domain they hang off.
+    private static final String ZOHO_API_DOMAIN = "https://www.zohoapis.com.au";
+
 
     // -------------------------------------------------------------------------
     // HELPER METHODS
@@ -299,14 +302,25 @@ public class ZohoSyncService {
                 return;
             }
 
+            List<String> syncedBriefIds = new ArrayList<>();
             for (Map<String, Object> r : records) {
                 try {
                     String zohoBriefId = r.get("id") != null ? r.get("id").toString() : null;
                     if (zohoBriefId == null) continue;
                     saveBuyerBriefRecord(r, zohoBriefId);
+                    syncedBriefIds.add(zohoBriefId);
                     count++;
                 } catch (Exception e) {
                     log.error("Error mapping BuyerBrief record {}: {}", r.get("id"), e.getMessage());
+                }
+            }
+
+            // Only reconcile deletes on a genuine complete listing (full sync, no limit) —
+            // a delta or limited fetch never represents the full set of Zoho brief ids.
+            if (fullSync && limit == null && syncedBriefIds.size() >= 10) {
+                int deleted = buyerBriefRepository.deleteByZohoBriefIdNotIn(syncedBriefIds);
+                if (deleted > 0) {
+                    log.info("Deleted {} stale buyer briefs", deleted);
                 }
             }
 
@@ -397,6 +411,7 @@ public class ZohoSyncService {
                     .filter(Objects::nonNull)
                     .collect(Collectors.toSet());
 
+            Map<String, List<String>> syncedDocIdsByProperty = new HashMap<>();
             for (Map<String, Object> r : records) {
                 try {
                     String zohoDocId = r.get("id") != null ? r.get("id").toString() : null;
@@ -411,9 +426,26 @@ public class ZohoSyncService {
                     }
 
                     savePropertyDocumentRecord(r, zohoDocId, validPropertyIds, skipR2);
+                    syncedDocIdsByProperty.computeIfAbsent(docPropertyId, k -> new ArrayList<>()).add(zohoDocId);
                     count++;
                 } catch (Exception e) {
                     log.error("Error mapping PropertyDocument record {}: {}", r.get("id"), e.getMessage());
+                }
+            }
+
+            // Only reconcile deletes on a genuine complete listing (full sync, no limit) —
+            // a delta or limited fetch only contains a subset of each property's documents.
+            if (fullSync && limit == null) {
+                int deletedDocs = 0;
+                for (Map.Entry<String, List<String>> entry : syncedDocIdsByProperty.entrySet()) {
+                    List<String> zohoDocIds = entry.getValue();
+                    if (!zohoDocIds.isEmpty()) {
+                        deletedDocs += propertyDocumentRepository
+                                .deleteByZohoPropertyIdAndZohoDocIdNotIn(entry.getKey(), zohoDocIds);
+                    }
+                }
+                if (deletedDocs > 0) {
+                    log.info("Deleted {} stale property documents", deletedDocs);
                 }
             }
 
@@ -457,6 +489,7 @@ public class ZohoSyncService {
                     .filter(Objects::nonNull)
                     .collect(Collectors.toSet());
 
+            List<String> syncedAssignmentIds = new ArrayList<>();
             for (Map<String, Object> r : records) {
                 try {
                     String zohoAssignmentId = r.get("id") != null ? r.get("id").toString() : null;
@@ -471,9 +504,19 @@ public class ZohoSyncService {
                     }
 
                     saveAssignmentRecord(r, zohoAssignmentId, contactEmailCache);
+                    syncedAssignmentIds.add(zohoAssignmentId);
                     count++;
                 } catch (Exception e) {
                     log.error("Error mapping Assignment record {}: {}", r.get("id"), e.getMessage());
+                }
+            }
+
+            // Only reconcile deletes on a genuine complete listing (full sync, no limit) —
+            // a delta or limited fetch never represents the full set of Zoho assignment ids.
+            if (fullSync && limit == null && syncedAssignmentIds.size() >= 10) {
+                int deleted = assignmentRepository.deleteByZohoAssignmentIdNotIn(syncedAssignmentIds);
+                if (deleted > 0) {
+                    log.info("Deleted {} stale assignments", deleted);
                 }
             }
 
@@ -743,6 +786,15 @@ public class ZohoSyncService {
         boolean isNew = (assignment == null);
         if (assignment == null) assignment = Assignment.builder().build();
 
+        // Captured before any field is overwritten below, so file-change detection compares
+        // against what was actually uploaded last time, not the plaintext link fallback.
+        String priorContractLink = assignment.getContractDownloadLink();
+        String priorContractFileName = assignment.getContractFileName();
+        String priorFinanceLetterLink = assignment.getFinanceLetterLink();
+        String priorFinanceLetterFileName = assignment.getFinanceLetterFileName();
+        String priorBnpReportLink = assignment.getBnpReportLink();
+        String priorBnpReportFileName = assignment.getBnpReportFileName();
+
         assignment.setZohoAssignmentId(zohoAssignmentId);
         assignment.setZohoContactId(getNestedId(r, "Buyer"));
         assignment.setZohoPropertyId(getNestedId(r, "Property"));
@@ -806,7 +858,102 @@ public class ZohoSyncService {
         assignment.setZohoModifiedAt(r.get("Modified_Time") != null ? r.get("Modified_Time").toString() : null);
         assignment.setSyncedAt(LocalDateTime.now());
 
+        String zohoContactId = assignment.getZohoContactId();
+        syncAssignmentFile(r, "Contract", zohoContactId, "contracts/",
+                priorContractLink, priorContractFileName,
+                assignment::setContractDownloadLink, assignment::setContractFileName,
+                "Uploaded contract for contact: {}");
+        syncAssignmentFile(r, "Finance_Letter", zohoContactId, "finance-letters/",
+                priorFinanceLetterLink, priorFinanceLetterFileName,
+                assignment::setFinanceLetterLink, assignment::setFinanceLetterFileName,
+                "Uploaded finance letter for contact: {}");
+        syncAssignmentFile(r, "BNP_Report", zohoContactId, "bnp-reports/",
+                priorBnpReportLink, priorBnpReportFileName,
+                assignment::setBnpReportLink, assignment::setBnpReportFileName,
+                "Uploaded BNP report for contact: {}");
+
         assignmentRepository.save(assignment);
+    }
+
+    // -------------------------------------------------------------------------
+    // ASSIGNMENT FILE-UPLOAD FIELDS — Contract, Finance_Letter, BNP_Report
+    // These are Zoho fileupload fields, not plain link fields; the record's array
+    // must be downloaded from Zoho and re-hosted on R2 so the client portal (which
+    // has no Zoho auth) can actually load the PDF.
+    // -------------------------------------------------------------------------
+
+    /**
+     * Downloads the first file from a Zoho fileupload-type field and re-uploads it to R2,
+     * skipping the round-trip when the stored file name hasn't changed since last sync.
+     */
+    private void syncAssignmentFile(
+            Map<String, Object> r, String apiFieldName, String zohoContactId, String r2KeyPrefix,
+            String currentLink, String currentFileName,
+            java.util.function.Consumer<String> linkSetter,
+            java.util.function.Consumer<String> fileNameSetter,
+            String uploadLogMessage) {
+
+        List<Map<String, Object>> files = getFileUploadList(r, apiFieldName);
+        if (files.isEmpty()) return;
+
+        Map<String, Object> first = files.get(0);
+        String fileName = first.get("file_Name") != null ? first.get("file_Name").toString() : null;
+        String downloadUrl = first.get("download_Url") != null ? first.get("download_Url").toString() : null;
+        if (fileName == null || downloadUrl == null) return;
+
+        if (currentLink != null && fileName.equals(currentFileName)) {
+            return; // already uploaded and unchanged — skip re-upload
+        }
+
+        byte[] bytes = downloadZohoFile(downloadUrl);
+        if (bytes == null) {
+            log.warn("Failed to download {} file for contact {}", apiFieldName, zohoContactId);
+            return;
+        }
+
+        String fileKey = r2KeyPrefix + zohoContactId + "/" + fileName;
+        String contentType = r2StorageService.getContentType(extractExtension(fileName));
+        String r2Url = r2StorageService.uploadBytes(bytes, fileKey, contentType);
+        if (r2Url == null) {
+            log.warn("Failed to upload {} file to R2 for contact {}", apiFieldName, zohoContactId);
+            return;
+        }
+
+        linkSetter.accept(r2Url);
+        fileNameSetter.accept(fileName);
+        log.info(uploadLogMessage, zohoContactId);
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> getFileUploadList(Map<String, Object> r, String key) {
+        Object value = r.get(key);
+        if (!(value instanceof List)) return Collections.emptyList();
+        try {
+            return (List<Map<String, Object>>) value;
+        } catch (ClassCastException e) {
+            return Collections.emptyList();
+        }
+    }
+
+    private String extractExtension(String fileName) {
+        if (fileName == null) return null;
+        int idx = fileName.lastIndexOf('.');
+        return (idx >= 0 && idx < fileName.length() - 1) ? fileName.substring(idx + 1) : null;
+    }
+
+    private byte[] downloadZohoFile(String downloadUrl) {
+        try {
+            String url = ZOHO_API_DOMAIN + downloadUrl;
+            HttpEntity<Void> entity = new HttpEntity<>(getZohoHeaders());
+            ResponseEntity<byte[]> response = restTemplate.exchange(url, HttpMethod.GET, entity, byte[].class);
+            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+                return response.getBody();
+            }
+            log.warn("Non-OK response downloading Zoho file {}: {}", downloadUrl, response.getStatusCode());
+        } catch (Exception e) {
+            log.error("Error downloading Zoho file {}: {}", downloadUrl, e.getMessage());
+        }
+        return null;
     }
 
     // -------------------------------------------------------------------------
@@ -1092,6 +1239,7 @@ public class ZohoSyncService {
         property.setAskingPriceMax(toBigDecimal(r.get("Asking_Price_Max")));
         property.setMinRentPerMonth(toBigDecimal(r.get("Minimum_Rent_Per_Month")));
         property.setInsuranceAmount(toBigDecimal(r.get("Insurance_Amount")));
+        property.setInsurance(toDouble(r.get("Insurance")));
         property.setYieldPercent(toDouble(r.get("Yield_Percent")));
         property.setStatus(newStatus);
         property.setSaleType(r.get("Sale_Type") != null ? r.get("Sale_Type").toString() : null);
@@ -1102,6 +1250,7 @@ public class ZohoSyncService {
         property.setLinkToListing(r.get("Link_To_Listing") != null ? r.get("Link_To_Listing").toString() : null);
         property.setStashLink(r.get("Stash_Link") != null ? r.get("Stash_Link").toString() : null);
         property.setCmaLink(r.get("CMA_Link1") != null ? r.get("CMA_Link1").toString() : null);
+        property.setOther(r.get("Other") != null ? r.get("Other").toString() : null);
         String coreLogic = r.get("Core_Logic_Link") != null ? r.get("Core_Logic_Link").toString() : null;
         property.setCoreLogicLink(coreLogic);
         

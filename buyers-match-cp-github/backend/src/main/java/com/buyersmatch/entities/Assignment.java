@@ -52,12 +52,15 @@ public class Assignment {
 
     @Column(columnDefinition = "text")
     private String bnpReportLink;
+    private String bnpReportFileName;
 
     @Column(columnDefinition = "text")
     private String financeLetterLink;
+    private String financeLetterFileName;
 
     @Column(columnDefinition = "text")
     private String contractDownloadLink;
+    private String contractFileName;
 
     @Column(columnDefinition = "text")
     private String docusignLink;

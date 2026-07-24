@@ -12,4 +12,5 @@ public interface BuyerBriefRepository extends JpaRepository<BuyerBrief, UUID> {
     List<BuyerBrief> findAllByZohoContactId(String zohoContactId);
     Optional<BuyerBrief> findByEmail(String email);
     List<BuyerBrief> findAllByEmail(String email);
+    int deleteByZohoBriefIdNotIn(List<String> zohoBriefIds);
 }

@@ -44,6 +44,7 @@ public class Property {
     private BigDecimal askingPriceMax;
     private BigDecimal minRentPerMonth;
     private BigDecimal insuranceAmount;
+    private Double insurance;
     private Double yieldPercent;
 
     private String status;
@@ -67,6 +68,9 @@ public class Property {
 
     @Column(columnDefinition = "text")
     private String coreLogicLink;
+
+    @Column(columnDefinition = "text")
+    private String other;
 
     private String agentName;
 

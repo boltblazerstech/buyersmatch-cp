@@ -12,4 +12,5 @@ public interface AssignmentRepository extends JpaRepository<Assignment, UUID> {
     List<Assignment> findAllByZohoContactIdIn(List<String> zohoContactIds);
     List<Assignment> findAllByZohoPropertyId(String zohoPropertyId);
     List<Assignment> findAllByZohoBriefId(String zohoBriefId);
+    int deleteByZohoAssignmentIdNotIn(List<String> zohoAssignmentIds);
 }

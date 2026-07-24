@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import AdminLayout from "../../components/AdminLayout";
 import { useToast } from "../../components/Toast";
 import {
@@ -48,6 +48,8 @@ import {
 const AdminPropertyDetail = () => {
   const { clientId, propertyId } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const briefId = searchParams.get("briefId") || "ALL";
   const toast = useToast();
 
   const [property, setProperty] = useState(null);
@@ -180,7 +182,7 @@ const AdminPropertyDetail = () => {
             Property not found
           </h2>
           <button
-            onClick={() => navigate(`/admin/client/${clientId}`)}
+            onClick={() => navigate(`/admin/client/${clientId}?briefId=${briefId}`)}
             className="text-teal hover:underline"
           >
             Back to Client
@@ -250,7 +252,7 @@ const AdminPropertyDetail = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Back */}
         <button
-          onClick={() => navigate(`/admin/client/${clientId}`)}
+          onClick={() => navigate(`/admin/client/${clientId}?briefId=${briefId}`)}
           className="flex items-center gap-2 text-gray-400 hover:text-teal transition-colors mb-8 group"
         >
           <ChevronLeft

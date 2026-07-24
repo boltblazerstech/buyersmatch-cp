@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import {
   getPropertyDetail,
   getPropertyDocuments,
@@ -42,7 +42,6 @@ import {
   PiggyBank,
   Percent,
   ArrowUpDown,
-  Link2,
   BookOpen,
   LayoutList,
   Save,
@@ -54,10 +53,38 @@ import DealProgress from "../../components/shared/DealProgress";
 import { isPurchasedItem } from "../../components/shared/StatusBadge";
 import { ShoppingBag } from "lucide-react";
 
+function isYouTubeUrl(url) {
+  if (!url) return false;
+  return url.includes("youtube.com") || url.includes("youtu.be");
+}
+
+function getYouTubeEmbedUrl(url) {
+  const regExp = /^.*(youtu\.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+  const match = url.match(regExp);
+  return match && match[2].length === 11
+    ? "https://www.youtube.com/embed/" + match[2]
+    : null;
+}
+
+function getLinkLabel(url, index) {
+  if (!url) return "Link " + (index + 1);
+  const u = url.toLowerCase();
+  if (u.includes("realestate.com.au")) return "REA Listing";
+  if (u.includes("domain.com.au")) return "Domain Listing";
+  if (u.includes("dropbox.com")) return "Dropbox Files";
+  if (u.includes("youtube.com") || u.includes("youtu.be")) return "Watch Video";
+  if (u.includes("drive.google.com")) return "Google Drive";
+  if (u.includes("homely.com.au")) return "Homely Listing";
+  if (u.includes("pricefinder.com.au")) return "Price Finder";
+  if (u.includes("rpdata.com") || u.includes("corelogic.com.au")) return "CoreLogic Report";
+  return "View Link " + (index + 1);
+}
+
 const PropertyDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const briefId = searchParams.get("briefId") || "ALL";
   const toast = useToast();
   const [property, setProperty] = useState(null);
   const [assignment, setAssignment] = useState(null);
@@ -220,7 +247,7 @@ const PropertyDetail = () => {
             Property not found
           </h2>
           <button
-            onClick={() => navigate("/dashboard", { state: location.state })}
+            onClick={() => navigate(`/dashboard?briefId=${briefId}`)}
             className="text-teal hover:underline"
           >
             Back to Dashboard
@@ -242,11 +269,37 @@ const PropertyDetail = () => {
 
   const isPurchased = assignment ? isPurchasedItem({ assignment, portalStatus: assignment.portalStatus }) : false;
 
+  const isVideoYouTube = isYouTubeUrl(property.coreLogicLink);
+  const videoEmbedUrl = isVideoYouTube ? getYouTubeEmbedUrl(property.coreLogicLink) : null;
+
+  const namedLinks = [];
+  if (property.linkToListing) {
+    namedLinks.push({ url: property.linkToListing, label: "View Listing" });
+  }
+  if (property.stashLink) {
+    namedLinks.push({ url: property.stashLink, label: "Stash Report" });
+  }
+  if (property.cmaLink) {
+    namedLinks.push({ url: property.cmaLink, label: "CMA Report" });
+  }
+  if (property.coreLogicLink && !isVideoYouTube) {
+    namedLinks.push({ url: property.coreLogicLink, label: "Watch Video" });
+  }
+
+  const otherLinks = property.other
+    ? property.other
+        .split(",")
+        .map((link, i) => ({ url: link.trim(), label: getLinkLabel(link.trim(), i) }))
+        .filter((item) => item.url.length > 0)
+    : [];
+
+  const allLinks = [...namedLinks, ...otherLinks];
+
   return (
     <Layout title={property.address}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <button
-          onClick={() => navigate("/dashboard", { state: location.state })}
+          onClick={() => navigate(`/dashboard?briefId=${briefId}`)}
           className="flex items-center gap-2 text-gray-400 hover:text-teal transition-colors mb-8 group"
         >
           <ChevronLeft
@@ -663,6 +716,16 @@ const PropertyDetail = () => {
                     icon: PiggyBank,
                     color: "text-white",
                   },
+                  ...(property.insurance != null && property.insurance > 0
+                    ? [
+                        {
+                          label: "Building Insurance",
+                          value: `$${Number(property.insurance).toLocaleString()} p.a.`,
+                          icon: PiggyBank,
+                          color: "text-white",
+                        },
+                      ]
+                    : []),
                 ].map(({ label, value, icon: Icon, color }, i) => (
                   <div
                     key={i}
@@ -684,51 +747,77 @@ const PropertyDetail = () => {
               </div>
             </div>
 
-            {/* ── Links ── */}
-            {(property.linkToListing ||
-              property.stashLink ||
-              property.cmaLink) && (
-              <div className="px-8 py-6">
+            {/* ── Property Video ── */}
+            {property.coreLogicLink && isVideoYouTube && videoEmbedUrl && (
+              <div className="px-8 py-6 border-b border-white/5">
                 <div className="flex items-center gap-2 mb-5">
-                  <Link2 size={14} className="text-teal" />
+                  <Play size={14} className="text-teal" />
                   <p className="text-[10px] uppercase tracking-widest text-teal font-bold">
-                    Links
+                    Property Video
                   </p>
                 </div>
-                <div className="flex flex-wrap gap-3">
-                  {property.linkToListing && (
+                <div style={{ borderRadius: "12px", overflow: "hidden", marginBottom: "24px" }}>
+                  <iframe
+                    width="100%"
+                    height="315"
+                    src={videoEmbedUrl}
+                    title="Property Video"
+                    frameBorder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope"
+                    allowFullScreen
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* ── Property Links ── */}
+            {allLinks.length > 0 && (
+              <div className="px-8 py-6" style={{ marginTop: "24px" }}>
+                <h3
+                  style={{
+                    fontSize: "14px",
+                    fontWeight: "700",
+                    color: "#6B7B6C",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.08em",
+                    marginBottom: "12px",
+                  }}
+                >
+                  Property Links
+                </h3>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
+                  {allLinks.map((item, index) => (
                     <a
-                      href={property.linkToListing}
+                      key={index}
+                      href={item.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-2 px-5 py-3 bg-teal/10 border border-teal/30 hover:bg-teal/20 text-teal font-bold text-sm rounded-xl transition-all group"
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        padding: "8px 16px",
+                        border: "1.5px solid #52B788",
+                        borderRadius: "100px",
+                        color: "#52B788",
+                        fontSize: "13px",
+                        fontWeight: "600",
+                        textDecoration: "none",
+                        transition: "all 0.2s",
+                        backgroundColor: "transparent",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = "#52B788";
+                        e.currentTarget.style.color = "#fff";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = "transparent";
+                        e.currentTarget.style.color = "#52B788";
+                      }}
                     >
-                      <ExternalLink size={15} />
-                      View Listing
+                      {item.label} →
                     </a>
-                  )}
-                  {property.stashLink && (
-                    <a
-                      href={property.stashLink}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 px-5 py-3 bg-white/5 border border-white/10 hover:bg-white/10 text-gray-300 hover:text-white font-bold text-sm rounded-xl transition-all group"
-                    >
-                      <BookOpen size={15} />
-                      Stash Link
-                    </a>
-                  )}
-                  {property.cmaLink && (
-                    <a
-                      href={property.cmaLink}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 px-5 py-3 bg-white/5 border border-white/10 hover:bg-white/10 text-gray-300 hover:text-white font-bold text-sm rounded-xl transition-all group"
-                    >
-                      <BarChart2 size={15} />
-                      CMA Report
-                    </a>
-                  )}
+                  ))}
                 </div>
               </div>
             )}

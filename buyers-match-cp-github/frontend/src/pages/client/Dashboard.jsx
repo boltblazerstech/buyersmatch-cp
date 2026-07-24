@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import {
   getClientProperties,
   getStoredUser,
@@ -301,7 +301,8 @@ const BuyerBriefView = ({ brief }) => {
 const Dashboard = () => {
   const [properties, setProperties] = useState([]);
   const [briefs, setBriefs] = useState([]);
-  const [selectedBriefId, setSelectedBriefId] = useState(() => sessionStorage.getItem("dashboard_selectedBriefId") || "ALL");
+  const [searchParams] = useSearchParams();
+  const [selectedBriefId, setSelectedBriefId] = useState(() => searchParams.get("briefId") || "ALL");
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState(() => sessionStorage.getItem("dashboard_activeTab") || "ALL");
@@ -327,16 +328,12 @@ const Dashboard = () => {
     sessionStorage.setItem("dashboard_activeTab", activeTab);
   }, [activeTab]);
 
-  // Restore filter state when returning from property detail
+  // Keep the brief filter in sync with the URL so browser back/forward
+  // restores whatever was selected, instead of resetting to "ALL".
   useEffect(() => {
-    if (location.state?.selectedBriefId) {
-      setSelectedBriefId(location.state.selectedBriefId);
-      sessionStorage.setItem("dashboard_selectedBriefId", location.state.selectedBriefId);
-    }
-    if (location.state?.activeTab) {
-      setActiveTab(location.state.activeTab);
-    }
-  }, []);
+    const paramBriefId = searchParams.get("briefId");
+    if (paramBriefId) setSelectedBriefId(paramBriefId);
+  }, [searchParams]);
 
 
   const allBriefs = useMemo(() => briefs, [briefs]);
@@ -671,8 +668,11 @@ const Dashboard = () => {
                   <select
                     value={selectedBriefId}
                     onChange={(e) => {
-                      setSelectedBriefId(e.target.value);
-                      sessionStorage.setItem("dashboard_selectedBriefId", e.target.value);
+                      const value = e.target.value;
+                      setSelectedBriefId(value);
+                      const params = new URLSearchParams(searchParams);
+                      params.set("briefId", value);
+                      navigate(`/dashboard?${params.toString()}`, { replace: true });
                     }}
                     className="appearance-none bg-navy border border-teal/30 rounded-xl px-4 py-2 pr-10 text-sm font-bold text-teal focus:outline-none focus:border-teal transition-all cursor-pointer"
                   >
@@ -783,7 +783,7 @@ const Dashboard = () => {
           {filteredProperties.length > 0 ? (
             <PropertyTable
               properties={filteredProperties}
-              onRowClick={(item) => navigate(`/property/${item.propertyId}`, { state: { selectedBriefId, activeTab } })}
+              onRowClick={(item) => navigate(`/property/${item.propertyId}?briefId=${selectedBriefId}`)}
               selectable={true}
               compareList={compareList}
               onToggleCompare={toggleCompare}
