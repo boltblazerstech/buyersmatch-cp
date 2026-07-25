@@ -1222,6 +1222,13 @@ public class ZohoSyncService {
         boolean isNew = (existing == null);
         Property property = existing != null ? existing : Property.builder().build();
 
+        boolean debugTarget = "86680000007505052".equals(zohoPropertyId);
+        if (debugTarget) {
+            log.info("DEBUG-INS start thread={} entityIdentity={} isNew={} existingInsurance={} existingAskMax={}",
+                    Thread.currentThread().getName(), System.identityHashCode(property), isNew,
+                    property.getInsurance(), property.getAskingPriceMax());
+        }
+
         property.setZohoPropertyId(zohoPropertyId);
         property.setAddress(r.get("Name") != null ? r.get("Name").toString() : null);
         property.setAddressLine1(r.get("Address_Line_1") != null ? r.get("Address_Line_1").toString() : null);
@@ -1239,6 +1246,10 @@ public class ZohoSyncService {
         property.setAskingPriceMax(toBigDecimal(r.get("Asking_Price_Max")));
         property.setMinRentPerMonth(toBigDecimal(r.get("Minimum_Rent_Per_Month")));
         property.setInsuranceAmount(toBigDecimal(r.get("Insurance_Amount")));
+        if (debugTarget) {
+            log.info("DEBUG-INS raw thread={} rawInsurance={} rawAskMax={} entityIdentity={}",
+                    Thread.currentThread().getName(), r.get("Insurance"), r.get("Asking_Price_Max"), System.identityHashCode(property));
+        }
         property.setInsurance(toDouble(r.get("Insurance")));
         property.setYieldPercent(toDouble(r.get("Yield_Percent")));
         property.setStatus(newStatus);
@@ -1262,7 +1273,19 @@ public class ZohoSyncService {
         property.setZohoModifiedAt(r.get("Modified_Time") != null ? r.get("Modified_Time").toString() : null);
         property.setSyncedAt(LocalDateTime.now());
 
-        propertyRepository.save(property);
+        if (debugTarget) {
+            log.info("DEBUG-INS beforeSave thread={} entityIdentity={} insurance={} askMax={}",
+                    Thread.currentThread().getName(), System.identityHashCode(property),
+                    property.getInsurance(), property.getAskingPriceMax());
+        }
+        Property savedProperty = propertyRepository.save(property);
+        if (debugTarget) {
+            log.info("DEBUG-INS afterSave thread={} savedInsurance={} savedAskMax={}",
+                    Thread.currentThread().getName(), savedProperty.getInsurance(), savedProperty.getAskingPriceMax());
+            propertyRepository.findByZohoPropertyId(zohoPropertyId).ifPresent(reloaded ->
+                    log.info("DEBUG-INS reQuery thread={} reQueriedInsurance={} reQueriedAskMax={}",
+                            Thread.currentThread().getName(), reloaded.getInsurance(), reloaded.getAskingPriceMax()));
+        }
 
         if (isNew && syncDocsAndAssignments) {
             log.info("New property {} — syncing its docs and assignments", zohoPropertyId);
