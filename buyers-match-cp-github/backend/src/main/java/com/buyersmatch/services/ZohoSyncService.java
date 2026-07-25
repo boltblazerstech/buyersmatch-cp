@@ -1239,11 +1239,7 @@ public class ZohoSyncService {
         property.setAskingPriceMax(toBigDecimal(r.get("Asking_Price_Max")));
         property.setMinRentPerMonth(toBigDecimal(r.get("Minimum_Rent_Per_Month")));
         property.setInsuranceAmount(toBigDecimal(r.get("Insurance_Amount")));
-        Object rawInsurance = r.get("Insurance");
-        Double parsedInsurance = toDouble(rawInsurance);
-        log.info("DEBUG-INSURANCE property={} rawInsurance={} (class={}) parsedInsurance={}",
-                zohoPropertyId, rawInsurance, rawInsurance != null ? rawInsurance.getClass().getName() : "null", parsedInsurance);
-        property.setInsurance(parsedInsurance);
+        property.setInsurance(toDouble(r.get("Insurance")));
         property.setYieldPercent(toDouble(r.get("Yield_Percent")));
         property.setStatus(newStatus);
         property.setSaleType(r.get("Sale_Type") != null ? r.get("Sale_Type").toString() : null);
@@ -1266,8 +1262,7 @@ public class ZohoSyncService {
         property.setZohoModifiedAt(r.get("Modified_Time") != null ? r.get("Modified_Time").toString() : null);
         property.setSyncedAt(LocalDateTime.now());
 
-        Property saved = propertyRepository.save(property);
-        log.info("DEBUG-INSURANCE after save property={} savedInsurance={}", zohoPropertyId, saved.getInsurance());
+        propertyRepository.save(property);
 
         if (isNew && syncDocsAndAssignments) {
             log.info("New property {} — syncing its docs and assignments", zohoPropertyId);
