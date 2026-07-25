@@ -200,8 +200,8 @@ public class ZohoSyncService {
     private Double toDouble(Object value) {
         if (value == null) return null;
         try {
-            return ((Number) value).doubleValue();
-        } catch (ClassCastException e) {
+            return Double.parseDouble(value.toString());
+        } catch (NumberFormatException e) {
             return null;
         }
     }
