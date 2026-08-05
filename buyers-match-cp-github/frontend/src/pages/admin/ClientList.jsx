@@ -190,7 +190,7 @@ const ClientList = () => {
 
   // ── Onboard modal ──────────────────────────────────────────────────────────
   const openOnboardModal = (client) => {
-    if (adminUser && !adminUser.isSuperAdmin) {
+    if (adminUser) {
       const remaining = adminUser.onboardingLimit ?? 0;
       if (remaining <= 0) {
         toast("Onboarding limit reached. Please purchase more credits.", "error");
@@ -232,7 +232,7 @@ const ClientList = () => {
 
       // Decrement credit count in state and localStorage
       setAdminUser((prev) => {
-        if (!prev || prev.isSuperAdmin) return prev;
+        if (!prev) return prev;
         const updated = { ...prev, onboardingLimit: Math.max(0, (prev.onboardingLimit ?? 1) - 1) };
         localStorage.setItem(STORAGE_KEYS.ADMIN_USER, JSON.stringify(updated));
         return updated;
