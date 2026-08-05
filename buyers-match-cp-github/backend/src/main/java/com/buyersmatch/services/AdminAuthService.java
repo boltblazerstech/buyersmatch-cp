@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -43,6 +44,9 @@ public class AdminAuthService {
         }
 
         String sessionToken = UUID.randomUUID().toString();
+        if (admin.getSessionTokens() == null) {
+            admin.setSessionTokens(new ArrayList<>());
+        }
         admin.getSessionTokens().add(sessionToken);
         adminUserRepository.save(admin);
 
