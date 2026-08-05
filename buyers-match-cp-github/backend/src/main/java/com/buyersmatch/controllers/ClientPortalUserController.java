@@ -25,7 +25,7 @@ public class ClientPortalUserController {
             jakarta.servlet.http.HttpServletRequest httpRequest) {
 
         com.buyersmatch.entities.AdminUser adminUser = (com.buyersmatch.entities.AdminUser) httpRequest.getAttribute("adminUser");
-        if (adminUser != null && !Boolean.TRUE.equals(adminUser.getIsSuperAdmin())) {
+        if (adminUser != null) {
             int remaining = adminUser.getOnboardingLimit() != null ? adminUser.getOnboardingLimit() : 0;
             if (remaining <= 0) {
                 throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN, "Onboarding limit reached. Please purchase more credits to onboard additional clients.");
