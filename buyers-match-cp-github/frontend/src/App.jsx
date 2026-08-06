@@ -36,19 +36,20 @@ function HostRedirect() {
 
     const isClient = /^(www\.)?clientportal/.test(host);
     const isAdmin = /^(www\.)?admin/.test(host);
+    const isAdminPath = window.location.pathname.startsWith("/admin");
     const clientUser = localStorage.getItem(STORAGE_KEYS.CLIENT_USER);
     const adminToken = localStorage.getItem(STORAGE_KEYS.ADMIN_TOKEN);
-    if (isClient) {
-      if (clientUser) {
-        navigate("/dashboard", { replace: true });
-      } else {
-        navigate("/login", { replace: true });
-      }
-    } else if (isAdmin) {
+    if (isAdmin || isAdminPath) {
       if (adminToken) {
         navigate("/admin/clients", { replace: true });
       } else {
         navigate("/admin/login", { replace: true });
+      }
+    } else if (isClient) {
+      if (clientUser) {
+        navigate("/dashboard", { replace: true });
+      } else {
+        navigate("/login", { replace: true });
       }
     } else {
       navigate("/login", { replace: true });
