@@ -82,6 +82,17 @@ function HostRedirect() {
   );
 }
 
+function Fallback() {
+  const path = window.location.pathname;
+  if (path.startsWith("/super-admin")) {
+    return <Navigate to="/super-admin/login" replace />;
+  }
+  if (path.startsWith("/admin")) {
+    return <Navigate to="/admin/login" replace />;
+  }
+  return <Navigate to="/login" replace />;
+}
+
 function App() {
   return (
     <ToastProvider>
@@ -196,7 +207,7 @@ function App() {
           />
 
           {/* Fallback */}
-          <Route path="*" element={<Navigate to="/login" replace />} />
+          <Route path="*" element={<Fallback />} />
         </Routes>
       </Router>
     </ToastProvider>
