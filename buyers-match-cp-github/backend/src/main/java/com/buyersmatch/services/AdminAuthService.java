@@ -47,6 +47,12 @@ public class AdminAuthService {
         if (admin.getSessionTokens() == null) {
             admin.setSessionTokens(new ArrayList<>());
         }
+        // Keep maximum 5 active sessions to prevent Hibernate @ElementCollection bloat.
+        // Hibernate's default behavior for Lists is to delete ALL rows and re-insert them 
+        // when adding one item, which causes infinite hangs if the list gets too large.
+        if (admin.getSessionTokens().size() > 5) {
+            admin.getSessionTokens().subList(0, admin.getSessionTokens().size() - 5).clear();
+        }
         admin.getSessionTokens().add(sessionToken);
         adminUserRepository.save(admin);
 

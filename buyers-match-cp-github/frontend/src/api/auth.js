@@ -7,14 +7,19 @@ export const login = async (email, password) => {
     await delay();
     const user = mockUsers.find(u => u.email === email && u.password === password);
     if (user) {
-      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+      localStorage.setItem(STORAGE_KEYS.CLIENT_USER, JSON.stringify(user));
       return user;
     }
     throw new Error('Invalid credentials');
   }
   const { data: response } = await api.post('/api/auth/login', { email, password });
   const data = response.data;
-  localStorage.setItem(STORAGE_KEYS.CLIENT_USER, JSON.stringify(data));
+  if (data.role === 'ADMIN') {
+    // Admin coming through unified login — store under admin key
+    localStorage.setItem(STORAGE_KEYS.ADMIN_USER, JSON.stringify(data));
+  } else {
+    localStorage.setItem(STORAGE_KEYS.CLIENT_USER, JSON.stringify(data));
+  }
   return data;
 };
 

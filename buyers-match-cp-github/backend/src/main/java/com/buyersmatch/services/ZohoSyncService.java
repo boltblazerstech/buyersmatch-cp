@@ -405,11 +405,7 @@ public class ZohoSyncService {
             }
 
             // Properties in DB that are not rejected are eligible for documents
-            Set<String> validPropertyIds = propertyRepository.findAll().stream()
-                    .filter(p -> !"Rejected".equalsIgnoreCase(p.getStatus()))
-                    .map(Property::getZohoPropertyId)
-                    .filter(Objects::nonNull)
-                    .collect(Collectors.toSet());
+            Set<String> validPropertyIds = new HashSet<>(propertyRepository.findAllValidZohoPropertyIds());
 
             Map<String, List<String>> syncedDocIdsByProperty = new HashMap<>();
             for (Map<String, Object> r : records) {
@@ -484,10 +480,7 @@ public class ZohoSyncService {
             }
 
             // Only save assignments for properties that exist in our DB
-            Set<String> validPropertyIds = propertyRepository.findAll().stream()
-                    .map(Property::getZohoPropertyId)
-                    .filter(Objects::nonNull)
-                    .collect(Collectors.toSet());
+            Set<String> validPropertyIds = new HashSet<>(propertyRepository.findAllZohoPropertyIds());
 
             List<String> syncedAssignmentIds = new ArrayList<>();
             for (Map<String, Object> r : records) {
@@ -556,7 +549,7 @@ public class ZohoSyncService {
         // Properties first — docs/assignments reference property IDs
         syncProperties(false, null);
         syncBuyerBriefs(false, null);
-        syncPropertyDocuments(true, null, true);
+        syncPropertyDocuments(false, null, true);  // delta, skipR2
         syncClientManagement(false, null);
         updateSyncState("DataSync", false);
         log.info("Data sync completed");
@@ -603,11 +596,7 @@ public class ZohoSyncService {
      * - assignment is NOT rejected (zohoStatus contains "reject" or portalStatus = "REJECTED")
      */
     private Set<String> getAllValidPropertyIds() {
-        return propertyRepository.findAll().stream()
-                .filter(p -> !"Rejected".equalsIgnoreCase(p.getStatus()))
-                .map(Property::getZohoPropertyId)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
+        return new HashSet<>(propertyRepository.findAllValidZohoPropertyIds());
     }
 
     private Set<String> getPortalClientPropertyIds() {
@@ -1284,9 +1273,16 @@ public class ZohoSyncService {
         }
 
         if (isNew && syncDocsAndAssignments) {
-            log.info("New property {} — syncing its docs and assignments", zohoPropertyId);
-            syncDocumentsForSingleProperty(zohoPropertyId);
-            syncAssignmentsForSingleProperty(zohoPropertyId);
+            log.info("New property {} — scheduling async docs/assignments sync", zohoPropertyId);
+            // Run async so login requests are never blocked waiting for Zoho API calls
+            java.util.concurrent.CompletableFuture.runAsync(() -> {
+                try {
+                    syncDocumentsForSingleProperty(zohoPropertyId);
+                    syncAssignmentsForSingleProperty(zohoPropertyId);
+                } catch (Exception e) {
+                    log.error("Async per-property sync failed for {}: {}", zohoPropertyId, e.getMessage());
+                }
+            });
         }
         return true;
     }
@@ -1427,7 +1423,7 @@ public class ZohoSyncService {
     // SCHEDULER — runs every 5 minutes
     // -------------------------------------------------------------------------
 
-    @Scheduled(fixedDelay = 300000)
+    @Scheduled(fixedDelay = 300000, initialDelay = 180000)
     public void scheduledDataSync() {
         log.info("Scheduled data sync started");
         runDataSync();

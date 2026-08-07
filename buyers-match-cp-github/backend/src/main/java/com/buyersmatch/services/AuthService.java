@@ -2,8 +2,10 @@ package com.buyersmatch.services;
 
 import com.buyersmatch.dto.AuthLoginRequest;
 import com.buyersmatch.dto.AuthLoginResponse;
+import com.buyersmatch.entities.AdminUser;
 import com.buyersmatch.entities.BuyerBrief;
 import com.buyersmatch.entities.ClientPortalUser;
+import com.buyersmatch.repositories.AdminUserRepository;
 import com.buyersmatch.repositories.ClientPortalUserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,6 +27,7 @@ import java.util.UUID;
 public class AuthService {
 
     private final ClientPortalUserRepository clientPortalUserRepository;
+    private final AdminUserRepository adminUserRepository;
     private final BCryptPasswordEncoder passwordEncoder;
     private final EmailService emailService;
 
@@ -69,6 +72,25 @@ public class AuthService {
                     .role("CLIENT")
                     .clientId(user.getBuyerBrief() != null ? user.getBuyerBrief().getId() : null)
                     .zohoContactId(user.getZohoContactId())
+                    .build();
+        }
+
+        // Fallback: check admin_users (unified login — as documented in API.md)
+        Optional<AdminUser> adminOpt = adminUserRepository.findByEmail(email);
+        if (adminOpt.isPresent()) {
+            AdminUser admin = adminOpt.get();
+            if (!passwordEncoder.matches(request.getPassword(), admin.getPasswordHash())) {
+                log.warn("Failed admin login attempt via unified login (wrong password): {}", email);
+                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid email or password");
+            }
+            log.info("Admin successfully logged in via unified login: {}", email);
+            return AuthLoginResponse.builder()
+                    .id(admin.getId())
+                    .email(admin.getEmail())
+                    .fullName(admin.getFullName())
+                    .role("ADMIN")
+                    .clientId(null)
+                    .zohoContactId(null)
                     .build();
         }
 
