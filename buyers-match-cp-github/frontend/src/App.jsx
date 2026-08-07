@@ -36,19 +36,20 @@ function HostRedirect() {
 
     const isClient = /^(www\.)?clientportal/.test(host);
     const isAdmin = /^(www\.)?admin/.test(host);
+    const isAdminPath = window.location.pathname.startsWith("/admin");
     const clientUser = localStorage.getItem(STORAGE_KEYS.CLIENT_USER);
     const adminToken = localStorage.getItem(STORAGE_KEYS.ADMIN_TOKEN);
-    if (isClient) {
-      if (clientUser) {
-        navigate("/dashboard", { replace: true });
-      } else {
-        navigate("/login", { replace: true });
-      }
-    } else if (isAdmin) {
+    if (isAdmin || isAdminPath) {
       if (adminToken) {
         navigate("/admin/clients", { replace: true });
       } else {
         navigate("/admin/login", { replace: true });
+      }
+    } else if (isClient) {
+      if (clientUser) {
+        navigate("/dashboard", { replace: true });
+      } else {
+        navigate("/login", { replace: true });
       }
     } else {
       navigate("/login", { replace: true });
@@ -79,6 +80,17 @@ function HostRedirect() {
       <p className="text-lg font-medium">Redirecting…</p>
     </div>
   );
+}
+
+function Fallback() {
+  const path = window.location.pathname;
+  if (path.startsWith("/super-admin")) {
+    return <Navigate to="/super-admin/login" replace />;
+  }
+  if (path.startsWith("/admin")) {
+    return <Navigate to="/admin/login" replace />;
+  }
+  return <Navigate to="/login" replace />;
 }
 
 function App() {
@@ -195,7 +207,7 @@ function App() {
           />
 
           {/* Fallback */}
-          <Route path="*" element={<Navigate to="/login" replace />} />
+          <Route path="*" element={<Fallback />} />
         </Routes>
       </Router>
     </ToastProvider>
